@@ -833,10 +833,10 @@ buildAll();
 
   <!-- CONTROLS -->
   <div id="gControls">
-    <div class="gctrl"><strong>P1</strong>WASD · Space · Q</div>
-    <div class="gctrl" id="gc2"><strong>P2</strong>←→↑ · Shift · /</div>
-    <div class="gctrl" id="gc3" style="display:none"><strong>P3</strong>IJKL · U · O</div>
-    <div class="gctrl" id="gc4" style="display:none"><strong>P4</strong>Num8456 · 9</div>
+    <div class="gctrl"><strong>P1</strong>AD move · W jump · E shoot</div>
+    <div class="gctrl" id="gc2"><strong>P2</strong>←→ move · ↑ jump · ↓ shoot</div>
+    <div class="gctrl" id="gc3" style="display:none"><strong>P3</strong>JL move · I jump · K shoot</div>
+    <div class="gctrl" id="gc4" style="display:none"><strong>P4</strong>46 move · 8 jump · 5 shoot</div>
   </div>
 </div>
 
@@ -868,10 +868,10 @@ let gPlayers = [], gAbilities = [], gBullets = [], gParticles = [];
 let gTaggedIdx = 0, gTagTime = {}, gStars = [], gClouds = [];
 
 const G_PLAYER_CFG = [
-  { name:'P1', color:'#ff4757', keys:{ left:'a', right:'d', up:'w', jump:' ', shoot:'q' } },
-  { name:'P2', color:'#2ed573', keys:{ left:'ArrowLeft', right:'ArrowRight', up:'ArrowUp', jump:'Shift', shoot:'/' } },
-  { name:'P3', color:'#ffa502', keys:{ left:'j', right:'l', up:'i', jump:'u', shoot:'o' } },
-  { name:'P4', color:'#1e90ff', keys:{ left:'4', right:'6', up:'8', jump:'5', shoot:'9' } },
+  { name:'P1', color:'#ff4757', keys:{ left:'a', right:'d', up:'w', jump:'w', shoot:'e' } },
+  { name:'P2', color:'#2ed573', keys:{ left:'ArrowLeft', right:'ArrowRight', up:'ArrowUp', jump:'ArrowUp', shoot:'ArrowDown' } },
+  { name:'P3', color:'#ffa502', keys:{ left:'j', right:'l', up:'i', jump:'i', shoot:'k' } },
+  { name:'P4', color:'#1e90ff', keys:{ left:'4', right:'6', up:'8', jump:'8', shoot:'5' } },
 ];
 
 const G_MAPS = [
