@@ -1046,8 +1046,8 @@ function gUpdate(dt, ts) {
     const cfg = p.keys;
     const spd = G_SPEED * (p.speedBoost>0?2.0:1) * dt;
     const jumpF = G_JUMP * (p.jumpBoost>0?1.35:1);
-    if (Math.abs(p.kbx)>0.1){p.vx+=p.kbx*dt;p.kbx*=Math.pow(0.8,dt);}
-    if (Math.abs(p.kby)>0.1){p.vy+=p.kby*dt;p.kby*=Math.pow(0.8,dt);}
+    if (Math.abs(p.kbx)>0.1){p.vx+=p.kbx*dt;p.kbx*=Math.pow(0.6,dt);}
+    if (Math.abs(p.kby)>0.1){p.vy+=p.kby*dt;p.kby*=Math.pow(0.6,dt);}
     let moving=false;
     if (gKeys[cfg.left]||gKeys[cfg.left?.toLowerCase()]){p.vx-=spd*1.5;p.facing=-1;moving=true;}
     if (gKeys[cfg.right]||gKeys[cfg.right?.toLowerCase()]){p.vx+=spd*1.5;p.facing=1;moving=true;}
@@ -1123,7 +1123,7 @@ function gUpdate(dt, ts) {
       const p=gPlayers[i];
       if(Math.abs(b.x-p.x)<20&&Math.abs(b.y-(p.y-30))<30){
         const dir=b.vx>0?1:-1;
-        p.kbx=dir*6;p.kby=-4;p.vy=-8;
+        p.kbx=dir*40;p.kby=-22;p.vy=-22;
         gSpawnParts(p.x,p.y-30,gPlayers[b.owner].color,12,dir*3,-3);
         return false;
       }
