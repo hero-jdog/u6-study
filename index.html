@@ -996,7 +996,7 @@ function gInitGame() {
   for (let i=0;i<8;i++) gClouds.push({x:Math.random(),y:0.05+Math.random()*0.3,w:0.06+Math.random()*0.08,spd:0.00005+Math.random()*0.0001});
   gPlayers = [];
   const spawnXs = [0.15, 0.85, 0.5, 0.35];
-  const spawnY = gH() * 0.78; // spawn on the floor
+  const spawnY = gH() * 0.78;
   for (let i=0;i<gNumPlayers;i++) {
     gTagTime[i]=0;
     gPlayers.push({
@@ -1006,7 +1006,7 @@ function gInitGame() {
       legAngle:0, armAngle:0, running:false,
       ability:null, abilityTimer:0, frozen:0, speedBoost:0, jumpBoost:0,
       hasGun:false, gunCooldown:0, kbx:0, kby:0, tagFlash:0, tagged:false,
-      tagCooldown:2000, // everyone starts with 2s grace period
+      tagCooldown:0,
     });
   }
   gTaggedIdx = Math.floor(Math.random()*gNumPlayers);
@@ -1093,16 +1093,17 @@ function gUpdate(dt, ts) {
     });
   });
 
-  // Tagging — capture current IT index before loop to prevent mid-loop mutation
+  // Tagging — uses real timestamps so it works at any frame rate
   const currentIT = gTaggedIdx;
   const tagger = gPlayers[currentIT];
-  if (tagger && (tagger.tagCooldown <= 0)) {
+  const now = performance.now();
+  if (tagger && (tagger.tagCooldown <= now)) {
     gPlayers.forEach((p, idx) => {
       if (idx === currentIT || p.frozen > 0) return;
       const dx = tagger.x - p.x, dy = tagger.y - p.y;
       if (Math.sqrt(dx*dx + dy*dy) < G_TAG_DIST) {
         tagger.tagged = false; tagger.tagFlash = 0;
-        tagger.tagCooldown = 800;
+        tagger.tagCooldown = now + 800;
         gTaggedIdx = idx;
         p.tagged = true; p.tagFlash = 8;
         p.tagCooldown = 0;
@@ -1111,8 +1112,6 @@ function gUpdate(dt, ts) {
       }
     });
   }
-  // Tick tag cooldowns in real ms
-  gPlayers.forEach(p => { if (p.tagCooldown > 0) p.tagCooldown -= dt * 16.67; });
 
   // Bullets
   gBullets=gBullets.filter(b=>{
