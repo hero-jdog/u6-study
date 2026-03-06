@@ -292,6 +292,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
   <button class="tab-btn active" onclick="switchTab('flashcards',this)">🃏 Flashcards</button>
   <button class="tab-btn" onclick="switchTab('quiz',this)">🧠 Quiz</button>
   <button class="tab-btn" onclick="switchTab('allcards',this)">📋 All Terms</button>
+  <button class="tab-btn" id="gameTabBtn" onclick="openGame()">🎮 Game</button>
 </div>
 
 <!-- FLASHCARDS -->
@@ -613,6 +614,709 @@ function switchTab(id, el){
 renderCard();
 startQuiz();
 buildAll();
+</script>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     GAME OVERLAY — full-screen tag game embedded in the study page
+═══════════════════════════════════════════════════════════════ -->
+<style>
+/* Game overlay sits on top of everything */
+#gameOverlay {
+  position: fixed; inset: 0; z-index: 200;
+  display: none; flex-direction: column;
+  background: #0a0a0f;
+  font-family: 'Space Mono', monospace;
+}
+#gameOverlay.active { display: flex; }
+
+/* ── Game tab button glow ── */
+#gameTabBtn {
+  color: #ff6b35 !important;
+  border-bottom-color: transparent;
+}
+#gameTabBtn:hover { color: #ff8c5a !important; }
+
+/* ── LOBBY ── */
+#gLobby {
+  position: absolute; inset: 0; z-index: 10;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: linear-gradient(135deg,#0d0d1a,#1a0a2e,#0a1a2e);
+}
+#gLobby::before {
+  content:''; position:absolute; inset:0;
+  background: radial-gradient(ellipse at 50% 0%, rgba(120,60,255,0.15), transparent 60%);
+  pointer-events:none;
+}
+.g-back-study {
+  position: absolute; top: 1rem; left: 1rem;
+  padding: 0.5rem 1rem; border-radius: 8px;
+  border: 1.5px solid rgba(255,107,53,0.4);
+  background: rgba(255,107,53,0.1); color: #ff8c5a;
+  font-family: 'Space Mono', monospace; font-size: 0.75rem;
+  cursor: pointer; transition: all 0.2s; z-index: 2;
+}
+.g-back-study:hover { background: rgba(255,107,53,0.25); border-color: #ff6b35; color: white; }
+.g-title {
+  font-family: 'Space Mono', monospace; font-size: clamp(3rem,8vw,6rem);
+  font-weight: 700; color: white; letter-spacing: 4px; position: relative; z-index:1;
+  text-shadow: 0 0 40px rgba(120,60,255,0.8), 0 0 80px rgba(120,60,255,0.4);
+  animation: gTitlePulse 3s ease-in-out infinite;
+}
+@keyframes gTitlePulse {
+  0%,100% { text-shadow: 0 0 40px rgba(120,60,255,0.8), 0 0 80px rgba(120,60,255,0.4); }
+  50% { text-shadow: 0 0 60px rgba(180,100,255,1), 0 0 120px rgba(120,60,255,0.6); }
+}
+.g-sub { font-size:0.8rem; color:rgba(180,140,255,0.7); letter-spacing:6px; margin-bottom:2.5rem; position:relative;z-index:1; }
+.g-section { margin-bottom:1.75rem; text-align:center; position:relative;z-index:1; }
+.g-section h3 { font-size:0.7rem; letter-spacing:3px; color:rgba(180,140,255,0.6); text-transform:uppercase; margin-bottom:0.85rem; }
+.g-row { display:flex; gap:0.65rem; flex-wrap:wrap; justify-content:center; }
+.g-btn {
+  padding:0.65rem 1.3rem; border-radius:10px;
+  border: 2px solid rgba(120,60,255,0.4); background: rgba(120,60,255,0.1);
+  color: rgba(200,170,255,0.8); font-family:'Space Mono',monospace; font-size:0.75rem;
+  cursor:pointer; transition:all 0.2s; letter-spacing:1px;
+}
+.g-btn:hover { border-color:rgba(180,120,255,0.8); background:rgba(120,60,255,0.25); color:white; transform:translateY(-2px); }
+.g-btn.sel { border-color:#a060ff; background:rgba(120,60,255,0.4); color:white; box-shadow:0 0 20px rgba(120,60,255,0.5); }
+.g-start {
+  padding:0.9rem 2.5rem; border-radius:12px; border:none;
+  background: linear-gradient(135deg,#7c3aed,#4f46e5);
+  color:white; font-family:'Space Mono',monospace; font-size:0.95rem; font-weight:700;
+  cursor:pointer; letter-spacing:2px; transition:all 0.2s;
+  box-shadow: 0 4px 30px rgba(120,60,255,0.5); position:relative;z-index:1; margin-top:0.5rem;
+}
+.g-start:hover { transform:translateY(-3px); box-shadow:0 8px 40px rgba(120,60,255,0.7); }
+
+/* ── HUD ── */
+#gHud {
+  position:absolute; top:0; left:0; right:0; z-index:5;
+  display:none; justify-content:space-between; align-items:flex-start;
+  padding:0.65rem 1rem; pointer-events:none;
+}
+#gHud.vis { display:flex; }
+.g-hcard {
+  background:rgba(0,0,0,0.6); border:1px solid rgba(255,255,255,0.1);
+  border-radius:10px; padding:0.45rem 0.65rem; min-width:85px; text-align:center;
+  backdrop-filter:blur(4px);
+}
+.g-hname { font-size:0.6rem; letter-spacing:1px; margin-bottom:0.15rem; }
+.g-hstatus { font-size:0.65rem; color:rgba(200,200,200,0.7); }
+.g-htimer { font-size:1.4rem; font-weight:700; color:white; text-align:center; text-shadow:0 0 20px rgba(255,255,255,0.5); }
+.g-hability { font-size:0.6rem; margin-top:0.15rem; min-height:13px; }
+
+/* ── PAUSE MENU ── */
+#gPause {
+  position:absolute; inset:0; z-index:20;
+  display:none; flex-direction:column; align-items:center; justify-content:center;
+  background: rgba(0,0,0,0.82); backdrop-filter:blur(8px);
+}
+#gPause.vis { display:flex; }
+.pause-title { font-size:2.5rem; font-weight:700; color:white; letter-spacing:4px; margin-bottom:0.5rem; text-shadow:0 0 30px rgba(120,60,255,0.8); }
+.pause-sub { font-size:0.7rem; color:rgba(180,140,255,0.6); letter-spacing:3px; margin-bottom:2.5rem; }
+.pause-btns { display:flex; flex-direction:column; gap:0.75rem; width:220px; }
+.pause-btn {
+  padding:0.8rem; border-radius:10px; border:2px solid rgba(255,255,255,0.15);
+  background:rgba(255,255,255,0.05); color:white; font-family:'Space Mono',monospace;
+  font-size:0.82rem; cursor:pointer; transition:all 0.2s; text-align:center; letter-spacing:1px;
+}
+.pause-btn:hover { background:rgba(120,60,255,0.3); border-color:rgba(120,60,255,0.6); transform:translateY(-2px); }
+.pause-btn.danger:hover { background:rgba(239,35,60,0.3); border-color:rgba(239,35,60,0.6); }
+
+/* ── GAME OVER (in-game) ── */
+#gOver {
+  position:absolute; inset:0; z-index:15;
+  display:none; flex-direction:column; align-items:center; justify-content:center;
+  background:rgba(0,0,0,0.85); backdrop-filter:blur(10px);
+}
+#gOver.vis { display:flex; }
+.go2-title { font-size:3rem; font-weight:700; color:white; margin-bottom:0.5rem; text-shadow:0 0 30px rgba(255,100,100,0.8); }
+.go2-msg { font-size:1rem; color:rgba(200,200,200,0.8); margin-bottom:2rem; text-align:center; max-width:400px; }
+.go2-btns { display:flex; gap:1rem; }
+.go2-btn {
+  padding:0.7rem 1.75rem; border-radius:10px;
+  border:2px solid rgba(255,255,255,0.2); background:rgba(255,255,255,0.05);
+  color:white; font-family:'Space Mono',monospace; font-size:0.8rem;
+  cursor:pointer; transition:all 0.2s; letter-spacing:1px;
+}
+.go2-btn:hover { background:rgba(255,255,255,0.15); transform:translateY(-2px); }
+
+/* ── CONTROLS BAR ── */
+#gControls {
+  position:absolute; bottom:0.75rem; left:50%; transform:translateX(-50%);
+  display:none; gap:1rem; flex-wrap:wrap; justify-content:center; z-index:5; pointer-events:none;
+}
+#gControls.vis { display:flex; }
+.gctrl {
+  background:rgba(0,0,0,0.6); border:1px solid rgba(255,255,255,0.1);
+  border-radius:8px; padding:0.45rem 0.8rem; font-size:0.65rem; color:rgba(200,200,200,0.7);
+  font-family:'Space Mono',monospace;
+}
+.gctrl strong { color:white; display:block; font-size:0.6rem; margin-bottom:0.2rem; }
+
+/* ── PAUSE HINT ── */
+.pause-hint {
+  position:absolute; top:0.7rem; right:1rem; z-index:6;
+  font-size:0.6rem; color:rgba(180,180,180,0.4); font-family:'Space Mono',monospace;
+  pointer-events:none;
+}
+#gPauseHint { display:none; }
+#gPauseHint.vis { display:block; }
+
+/* ── CANVAS ── */
+#gCanvas { display:block; width:100%; height:100%; }
+</style>
+
+<!-- THE OVERLAY -->
+<div id="gameOverlay">
+  <!-- Canvas behind everything -->
+  <canvas id="gCanvas"></canvas>
+
+  <!-- Pause key hint -->
+  <div class="pause-hint" id="gPauseHint">ESC — Pause</div>
+
+  <!-- HUD -->
+  <div id="gHud">
+    <div id="gHudPlayers" style="display:flex;gap:0.5rem;flex-wrap:wrap;"></div>
+    <div style="text-align:center;">
+      <div class="g-htimer" id="gHudTimer">90</div>
+      <div style="font-size:0.6rem;color:rgba(180,180,180,0.5);letter-spacing:1px;">TIME</div>
+    </div>
+    <div style="min-width:180px;"></div>
+  </div>
+
+  <!-- LOBBY -->
+  <div id="gLobby">
+    <button class="g-back-study" onclick="closeGame()">← Back to Study</button>
+    <div class="g-title">TAG</div>
+    <div class="g-sub">Multiplayer Arena</div>
+    <div class="g-section">
+      <h3>Players</h3>
+      <div class="g-row">
+        <button class="g-btn sel" onclick="gSelectPlayers(2,this)">2 Players</button>
+        <button class="g-btn" onclick="gSelectPlayers(3,this)">3 Players</button>
+        <button class="g-btn" onclick="gSelectPlayers(4,this)">4 Players</button>
+      </div>
+    </div>
+    <div class="g-section">
+      <h3>Select Map</h3>
+      <div class="g-row">
+        <button class="g-btn sel" onclick="gSelectMap(0,this)">🌌 Final Dest.</button>
+        <button class="g-btn" onclick="gSelectMap(1,this)">🌋 Battlefield</button>
+        <button class="g-btn" onclick="gSelectMap(2,this)">⚡ Sky Temple</button>
+        <button class="g-btn" onclick="gSelectMap(3,this)">🌊 Dream Land</button>
+      </div>
+    </div>
+    <button class="g-start" onclick="gStartGame()">START GAME</button>
+  </div>
+
+  <!-- PAUSE -->
+  <div id="gPause">
+    <div class="pause-title">PAUSED</div>
+    <div class="pause-sub">ESC or P to resume</div>
+    <div class="pause-btns">
+      <button class="pause-btn" onclick="gResume()">▶ Resume</button>
+      <button class="pause-btn" onclick="gBackToLobby()">🏠 Main Menu</button>
+      <button class="pause-btn danger" onclick="closeGame()">← Back to Study</button>
+    </div>
+  </div>
+
+  <!-- GAME OVER -->
+  <div id="gOver">
+    <div class="go2-title">GAME OVER</div>
+    <div class="go2-msg" id="gOverMsg"></div>
+    <div class="go2-btns">
+      <button class="go2-btn" onclick="gRestartGame()">Play Again</button>
+      <button class="go2-btn" onclick="gBackToLobby()">Main Menu</button>
+      <button class="go2-btn" onclick="closeGame()">← Study</button>
+    </div>
+  </div>
+
+  <!-- CONTROLS -->
+  <div id="gControls">
+    <div class="gctrl"><strong>P1</strong>WASD · Space · Q</div>
+    <div class="gctrl" id="gc2"><strong>P2</strong>←→↑ · Shift · /</div>
+    <div class="gctrl" id="gc3" style="display:none"><strong>P3</strong>IJKL · U · O</div>
+    <div class="gctrl" id="gc4" style="display:none"><strong>P4</strong>Num8456 · 9</div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+//  TAG GAME — embedded in study page
+// ═══════════════════════════════════════════
+const gc = document.getElementById('gCanvas');
+const gctx = gc.getContext('2d');
+const gW = () => gc.width;
+const gH = () => gc.height;
+
+const G_GRAVITY = 0.52;
+const G_JUMP = -18;
+const G_SPEED = 2.6;
+const G_TAG_DIST = 38;
+const G_ABILITY_INTERVAL = 20000;
+
+let gNumPlayers = 2;
+let gMap = 0;
+let gRunning = false;
+let gPaused = false;
+let gTimer = 90;
+let gTimerInt = null;
+let gLastTime = 0;
+let gAnimFrame = null;
+let gLastAbility = 0;
+let gPlayers = [], gAbilities = [], gBullets = [], gParticles = [];
+let gTaggedIdx = 0, gTagTime = {}, gStars = [], gClouds = [];
+
+const G_PLAYER_CFG = [
+  { name:'P1', color:'#ff4757', keys:{ left:'a', right:'d', up:'w', jump:' ', shoot:'q' } },
+  { name:'P2', color:'#2ed573', keys:{ left:'ArrowLeft', right:'ArrowRight', up:'ArrowUp', jump:'Shift', shoot:'/' } },
+  { name:'P3', color:'#ffa502', keys:{ left:'j', right:'l', up:'i', jump:'u', shoot:'o' } },
+  { name:'P4', color:'#1e90ff', keys:{ left:'4', right:'6', up:'8', jump:'5', shoot:'9' } },
+];
+
+const G_MAPS = [
+  { name:'Final Destination', bgGrad:['#0d0020','#1a0040','#000010'], stars:true, platforms:[], fog:'rgba(80,0,180,0.03)' },
+  { name:'Battlefield', bgGrad:['#1a0500','#3d1000','#0a0000'], mountains:true, fog:'rgba(200,50,0,0.02)', platforms:[
+    {x:0.08,y:0.68,w:0.18,c:'#6b3410'},{x:0.74,y:0.68,w:0.18,c:'#6b3410'},{x:0.38,y:0.68,w:0.24,c:'#7a3d12'},
+    {x:0.02,y:0.52,w:0.20,c:'#8b4513'},{x:0.78,y:0.52,w:0.20,c:'#8b4513'},{x:0.36,y:0.52,w:0.28,c:'#a0522d'},
+    {x:0.12,y:0.36,w:0.20,c:'#cd853f'},{x:0.68,y:0.36,w:0.20,c:'#cd853f'},{x:0.38,y:0.36,w:0.24,c:'#b8730e'},
+    {x:0.25,y:0.22,w:0.22,c:'#daa520'},{x:0.53,y:0.22,w:0.22,c:'#daa520'},
+  ]},
+  { name:'Sky Temple', bgGrad:['#001030','#002060','#003080'], clouds:true, fog:'rgba(0,100,200,0.02)', platforms:[
+    {x:0.02,y:0.68,w:0.16,c:'#3a80c9'},{x:0.42,y:0.68,w:0.16,c:'#3a80c9'},{x:0.82,y:0.68,w:0.16,c:'#3a80c9'},
+    {x:0.04,y:0.52,w:0.22,c:'#4a90d9'},{x:0.74,y:0.52,w:0.22,c:'#4a90d9'},{x:0.30,y:0.52,w:0.40,c:'#5aa0e9'},
+    {x:0.10,y:0.36,w:0.20,c:'#6ab0f9'},{x:0.70,y:0.36,w:0.20,c:'#6ab0f9'},{x:0.36,y:0.36,w:0.28,c:'#7ac0ff'},
+    {x:0.02,y:0.22,w:0.14,c:'#8ad0ff'},{x:0.42,y:0.22,w:0.16,c:'#9ae0ff'},{x:0.84,y:0.22,w:0.14,c:'#8ad0ff'},
+  ]},
+  { name:'Dream Land', bgGrad:['#1a0030','#2d0050','#100020'], stars:true, nebula:true, fog:'rgba(150,0,200,0.025)', platforms:[
+    {x:0.05,y:0.68,w:0.18,c:'#7d3c98'},{x:0.41,y:0.68,w:0.18,c:'#7d3c98'},{x:0.77,y:0.68,w:0.18,c:'#7d3c98'},
+    {x:0.02,y:0.52,w:0.22,c:'#8e44ad'},{x:0.76,y:0.52,w:0.22,c:'#8e44ad'},{x:0.28,y:0.52,w:0.44,c:'#9b59b6'},
+    {x:0.08,y:0.36,w:0.22,c:'#a569bd'},{x:0.70,y:0.36,w:0.22,c:'#a569bd'},{x:0.34,y:0.36,w:0.32,c:'#bb8fce'},
+    {x:0.18,y:0.22,w:0.20,c:'#d2b4de'},{x:0.62,y:0.22,w:0.20,c:'#d2b4de'},{x:0.38,y:0.10,w:0.24,c:'#e8daef'},
+  ]},
+];
+
+const gKeys = {};
+document.addEventListener('keydown', e => {
+  gKeys[e.key] = true;
+  if (document.getElementById('gameOverlay').classList.contains('active')) {
+    if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)) e.preventDefault();
+    if ((e.key === 'Escape' || e.key === 'p' || e.key === 'P') && gRunning) {
+      gPaused ? gResume() : gPauseGame();
+    }
+  }
+});
+document.addEventListener('keyup', e => { gKeys[e.key] = false; });
+
+// ── OPEN / CLOSE ─────────────────────────────────────────────────
+function openGame() {
+  document.getElementById('gameOverlay').classList.add('active');
+  gc.width = window.innerWidth;
+  gc.height = window.innerHeight;
+}
+function closeGame() {
+  gRunning = false; gPaused = false;
+  cancelAnimationFrame(gAnimFrame);
+  clearInterval(gTimerInt);
+  document.getElementById('gameOverlay').classList.remove('active');
+  document.getElementById('gLobby').style.display = 'flex';
+  document.getElementById('gHud').classList.remove('vis');
+  document.getElementById('gPause').classList.remove('vis');
+  document.getElementById('gOver').classList.remove('vis');
+  document.getElementById('gControls').classList.remove('vis');
+  document.getElementById('gPauseHint').classList.remove('vis');
+}
+
+function gSelectPlayers(n, btn) {
+  gNumPlayers = n;
+  document.querySelectorAll('#gLobby .g-row:first-of-type .g-btn').forEach(b => b.classList.remove('sel'));
+  btn.classList.add('sel');
+}
+function gSelectMap(m, btn) {
+  gMap = m;
+  btn.closest('.g-row').querySelectorAll('.g-btn').forEach(b => b.classList.remove('sel'));
+  btn.classList.add('sel');
+}
+
+function gStartGame() {
+  gc.width = window.innerWidth; gc.height = window.innerHeight;
+  document.getElementById('gLobby').style.display = 'none';
+  document.getElementById('gHud').classList.add('vis');
+  document.getElementById('gControls').classList.add('vis');
+  document.getElementById('gPauseHint').classList.add('vis');
+  document.getElementById('gOver').classList.remove('vis');
+  document.getElementById('gc3').style.display = gNumPlayers >= 3 ? 'block' : 'none';
+  document.getElementById('gc4').style.display = gNumPlayers >= 4 ? 'block' : 'none';
+  gInitGame();
+}
+
+function gBackToLobby() {
+  gRunning = false; gPaused = false;
+  cancelAnimationFrame(gAnimFrame);
+  clearInterval(gTimerInt);
+  document.getElementById('gLobby').style.display = 'flex';
+  document.getElementById('gHud').classList.remove('vis');
+  document.getElementById('gPause').classList.remove('vis');
+  document.getElementById('gOver').classList.remove('vis');
+  document.getElementById('gControls').classList.remove('vis');
+  document.getElementById('gPauseHint').classList.remove('vis');
+}
+
+function gPauseGame() {
+  gPaused = true;
+  document.getElementById('gPause').classList.add('vis');
+  cancelAnimationFrame(gAnimFrame);
+  clearInterval(gTimerInt);
+}
+function gResume() {
+  gPaused = false;
+  document.getElementById('gPause').classList.remove('vis');
+  gTimerInt = setInterval(() => {
+    if (!gRunning || gPaused) return;
+    gTimer--; document.getElementById('gHudTimer').textContent = gTimer;
+    if (gTimer <= 0) gEndGame();
+  }, 1000);
+  gLastTime = performance.now();
+  gLoop();
+}
+function gRestartGame() {
+  document.getElementById('gOver').classList.remove('vis');
+  gInitGame();
+}
+
+// ── INIT ─────────────────────────────────────────────────────────
+function gInitGame() {
+  gc.width = window.innerWidth; gc.height = window.innerHeight;
+  gRunning = true; gPaused = false; gTimer = 90;
+  gAbilities = []; gBullets = []; gParticles = []; gTagTime = {};
+  gLastAbility = performance.now();
+  gStars = [];
+  for (let i=0;i<200;i++) gStars.push({x:Math.random(),y:Math.random()*0.85,r:Math.random()*1.5+0.3,tw:Math.random()*Math.PI*2});
+  gClouds = [];
+  for (let i=0;i<8;i++) gClouds.push({x:Math.random(),y:0.05+Math.random()*0.3,w:0.06+Math.random()*0.08,spd:0.00005+Math.random()*0.0001});
+  gPlayers = [];
+  const spawnXs = [0.2,0.8,0.5,0.35];
+  for (let i=0;i<gNumPlayers;i++) {
+    gTagTime[i]=0;
+    gPlayers.push({
+      id:i, x:gW()*spawnXs[i], y:gH()*0.5, vx:0, vy:0,
+      onGround:false, facing:i===0?1:-1, color:G_PLAYER_CFG[i].color,
+      name:G_PLAYER_CFG[i].name, keys:G_PLAYER_CFG[i].keys,
+      legAngle:0, armAngle:0, running:false,
+      ability:null, abilityTimer:0, frozen:0, speedBoost:0, jumpBoost:0,
+      hasGun:false, gunCooldown:0, kbx:0, kby:0, tagFlash:0, tagged:false,
+    });
+  }
+  gTaggedIdx = Math.floor(Math.random()*gNumPlayers);
+  gPlayers[gTaggedIdx].tagged = true;
+  document.getElementById('gHudTimer').textContent = gTimer;
+  gUpdateHUD();
+  clearInterval(gTimerInt);
+  gTimerInt = setInterval(() => {
+    if (!gRunning || gPaused) return;
+    gTimer--; document.getElementById('gHudTimer').textContent = gTimer;
+    if (gTimer <= 0) gEndGame();
+  }, 1000);
+  gLastTime = performance.now();
+  cancelAnimationFrame(gAnimFrame);
+  gLoop();
+}
+
+// ── LOOP ─────────────────────────────────────────────────────────
+function gLoop(ts=0) {
+  if (!gRunning || gPaused) return;
+  const dt = Math.min((ts - gLastTime)/16.67, 3);
+  gLastTime = ts;
+  gUpdate(dt, ts);
+  gDraw(ts);
+  gAnimFrame = requestAnimationFrame(gLoop);
+}
+
+// ── UPDATE ────────────────────────────────────────────────────────
+function gUpdate(dt, ts) {
+  if (ts - gLastAbility > G_ABILITY_INTERVAL && gAbilities.length < 2) {
+    gSpawnAbility(); gLastAbility = ts;
+  }
+  gTagTime[gTaggedIdx] = (gTagTime[gTaggedIdx]||0) + dt*16.67;
+
+  gPlayers.forEach((p, idx) => {
+    if (p.frozen > 0) { p.frozen -= dt*16.67; return; }
+    const cfg = p.keys;
+    const spd = G_SPEED * (p.speedBoost>0?2.0:1) * dt;
+    const jumpF = G_JUMP * (p.jumpBoost>0?1.35:1);
+    if (Math.abs(p.kbx)>0.1){p.vx+=p.kbx*dt;p.kbx*=Math.pow(0.8,dt);}
+    if (Math.abs(p.kby)>0.1){p.vy+=p.kby*dt;p.kby*=Math.pow(0.8,dt);}
+    let moving=false;
+    if (gKeys[cfg.left]||gKeys[cfg.left?.toLowerCase()]){p.vx-=spd*1.5;p.facing=-1;moving=true;}
+    if (gKeys[cfg.right]||gKeys[cfg.right?.toLowerCase()]){p.vx+=spd*1.5;p.facing=1;moving=true;}
+    if ((gKeys[cfg.up]||gKeys[cfg.up?.toLowerCase()]||gKeys[cfg.jump])&&p.onGround){p.vy=jumpF;p.onGround=false;}
+    // Gun shoot — auto-aim
+    if (p.hasGun && p.gunCooldown<=0 && (gKeys[cfg.shoot]||gKeys[cfg.shoot?.toLowerCase()])) {
+      let closest=null, closestDist=Infinity;
+      gPlayers.forEach((o,oi)=>{
+        if(oi===idx)return;
+        const dx=o.x-p.x,dy=(o.y-30)-(p.y-30),d=Math.sqrt(dx*dx+dy*dy);
+        if(d<closestDist){closestDist=d;closest=o;}
+      });
+      if(closest){
+        const dx=closest.x-p.x,dy=(closest.y-30)-(p.y-30),len=Math.sqrt(dx*dx+dy*dy)||1,s=14;
+        gBullets.push({x:p.x+(dx/len)*20,y:p.y-30,vx:(dx/len)*s,vy:(dy/len)*s,owner:idx,life:80});
+        p.gunCooldown=25;
+        gSpawnParts(p.x,p.y-30,'#ffff00',6,(dx/len)*5,(dy/len)*5);
+      }
+    }
+    if(p.gunCooldown>0)p.gunCooldown-=dt;
+    if(p.speedBoost>0)p.speedBoost-=dt*16.67;
+    if(p.jumpBoost>0)p.jumpBoost-=dt*16.67;
+    if(p.hasGun&&p.abilityTimer>0){p.abilityTimer-=dt*16.67;if(p.abilityTimer<=0)p.hasGun=false;}
+    if(p.tagFlash>0)p.tagFlash-=dt;
+    p.vy+=G_GRAVITY*dt; p.vx*=Math.pow(0.78,dt);
+    p.x+=p.vx*dt; p.y+=p.vy*dt;
+    p.onGround=false;
+    gGetPlatforms().forEach(pl=>{
+      const feet=p.y, prev=p.y-p.vy*dt;
+      if(p.x>pl.x-15&&p.x<pl.x+pl.w+15&&prev<=pl.y+2&&feet>=pl.y-2&&p.vy>=0){p.y=pl.y;p.vy=0;p.onGround=true;}
+    });
+    if(p.x<15){p.x=15;p.vx=Math.abs(p.vx)*0.3;}
+    if(p.x>gW()-15){p.x=gW()-15;p.vx=-Math.abs(p.vx)*0.3;}
+    if(p.y>gH()+100){p.y=gH()*0.3;p.x=gW()*(0.3+Math.random()*0.4);p.vy=0;p.vx=0;}
+    p.running=moving&&p.onGround;
+    p.legAngle=p.running?Math.sin(ts*0.015+idx)*0.7:(p.onGround?p.legAngle*0.8:Math.sin(ts*0.008)*0.3);
+    p.armAngle=p.running?-Math.sin(ts*0.015+idx)*0.5:(p.onGround?p.armAngle*0.8:Math.sin(ts*0.008)*0.4);
+    // Ability pickup
+    gAbilities=gAbilities.filter(ab=>{
+      const dx=p.x-ab.x,dy=(p.y-30)-ab.y;
+      if(Math.sqrt(dx*dx+dy*dy)<30){gApplyAbility(p,ab.type,idx);gSpawnParts(ab.x,ab.y,ab.color,15,0,0);return false;}
+      return true;
+    });
+  });
+
+  // Tagging
+  const tagger=gPlayers[gTaggedIdx];
+  gPlayers.forEach((p,idx)=>{
+    if(idx===gTaggedIdx||p.frozen>0)return;
+    const dx=tagger.x-p.x,dy=tagger.y-p.y;
+    if(Math.sqrt(dx*dx+dy*dy)<G_TAG_DIST){
+      tagger.tagged=false; tagger.tagFlash=0;
+      gTaggedIdx=idx; p.tagged=true; p.tagFlash=8;
+      gSpawnParts(p.x,p.y-30,'#ffffff',20,0,-2);
+      gUpdateHUD();
+    }
+  });
+
+  // Bullets
+  gBullets=gBullets.filter(b=>{
+    b.x+=b.vx*dt; b.y+=b.vy*dt; b.life-=dt;
+    if(b.life<=0||b.x<0||b.x>gW()||b.y<0||b.y>gH())return false;
+    for(let i=0;i<gPlayers.length;i++){
+      if(i===b.owner)continue;
+      const p=gPlayers[i];
+      if(Math.abs(b.x-p.x)<20&&Math.abs(b.y-(p.y-30))<30){
+        const dir=b.vx>0?1:-1;
+        p.kbx=dir*6;p.kby=-4;p.vy=-8;
+        gSpawnParts(p.x,p.y-30,gPlayers[b.owner].color,12,dir*3,-3);
+        return false;
+      }
+    }
+    return true;
+  });
+
+  gParticles=gParticles.filter(p=>{
+    p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=0.15*dt;p.life-=dt;p.vx*=0.95;return p.life>0;
+  });
+  gAbilities.forEach(a=>{a.y+=Math.sin(ts*0.003+a.phase)*0.4*dt;});
+  gUpdateHUD();
+}
+
+function gApplyAbility(p,type,idx){
+  if(type==='speed')p.speedBoost=5000;
+  else if(type==='jump')p.jumpBoost=5000;
+  else if(type==='freeze')gPlayers.forEach((o,i)=>{if(i!==idx)o.frozen=3000;});
+  else if(type==='gun'){p.hasGun=true;p.abilityTimer=8000;}
+}
+function gSpawnAbility(){
+  const types=['speed','jump','freeze','gun'],colors={speed:'#ffd700',jump:'#00ff88',freeze:'#00cfff',gun:'#ff6b35'};
+  const type=types[Math.floor(Math.random()*types.length)];
+  const plats=gGetPlatforms(),pl=plats[Math.floor(Math.random()*plats.length)];
+  gAbilities.push({x:pl.x+pl.w*0.3+Math.random()*pl.w*0.4,y:pl.y-25,type,color:colors[type],phase:Math.random()*Math.PI*2});
+}
+function gSpawnParts(x,y,color,count,vx=0,vy=0){
+  for(let i=0;i<count;i++){
+    const a=Math.random()*Math.PI*2,s=1+Math.random()*4;
+    gParticles.push({x,y,vx:Math.cos(a)*s+vx,vy:Math.sin(a)*s+vy,color,life:1+Math.random()*1.5,r:2+Math.random()*3});
+  }
+}
+function gGetPlatforms(){
+  const m=G_MAPS[gMap],plats=[];
+  const mainCols=['#3d1a6e','#8b4513','#1a4a8a','#4a1a6e'];
+  plats.push({x:0,y:gH()*0.84,w:gW(),color:mainCols[gMap]});
+  m.platforms.forEach(p=>plats.push({x:gW()*p.x,y:gH()*p.y,w:gW()*p.w,color:p.c}));
+  return plats;
+}
+
+// ── DRAW ──────────────────────────────────────────────────────────
+function gDraw(ts){
+  const m=G_MAPS[gMap];
+  gctx.clearRect(0,0,gW(),gH());
+  const gr=gctx.createLinearGradient(0,0,0,gH());
+  m.bgGrad.forEach((c,i)=>gr.addColorStop(i/(m.bgGrad.length-1),c));
+  gctx.fillStyle=gr; gctx.fillRect(0,0,gW(),gH());
+  if(m.stars)gDrawStars(ts);
+  if(m.nebula)gDrawNebula(ts);
+  if(m.mountains)gDrawMountains();
+  if(m.clouds)gDrawClouds(ts);
+  gGetPlatforms().forEach((p,i)=>gDrawPlatform(p,i===0));
+  gAbilities.forEach(a=>gDrawAbility(a,ts));
+  gBullets.forEach(b=>{
+    gctx.save();gctx.shadowBlur=10;gctx.shadowColor='#ffff00';gctx.fillStyle='#ffee00';
+    gctx.beginPath();gctx.arc(b.x,b.y,5,0,Math.PI*2);gctx.fill();gctx.restore();
+  });
+  gParticles.forEach(p=>{
+    gctx.save();gctx.globalAlpha=Math.max(0,p.life/2.5);gctx.fillStyle=p.color;
+    gctx.shadowBlur=6;gctx.shadowColor=p.color;
+    gctx.beginPath();gctx.arc(p.x,p.y,p.r,0,Math.PI*2);gctx.fill();gctx.restore();
+  });
+  gPlayers.forEach((p,i)=>gDrawPlayer(p,i,ts));
+  if(m.fog){gctx.fillStyle=m.fog;gctx.fillRect(0,0,gW(),gH());}
+}
+
+function gDrawStars(ts){
+  gStars.forEach(s=>{
+    const tw=0.5+0.5*Math.sin(ts*0.001+s.tw);
+    gctx.globalAlpha=tw*0.8;gctx.fillStyle='white';
+    gctx.beginPath();gctx.arc(s.x*gW(),s.y*gH(),s.r*tw,0,Math.PI*2);gctx.fill();
+  });gctx.globalAlpha=1;
+}
+function gDrawNebula(ts){
+  const x=gW()*0.5+Math.sin(ts*0.0003)*gW()*0.1;
+  const gr=gctx.createRadialGradient(x,gH()*0.3,0,x,gH()*0.3,gW()*0.4);
+  gr.addColorStop(0,'rgba(180,0,255,0.04)');gr.addColorStop(0.5,'rgba(0,50,200,0.03)');gr.addColorStop(1,'transparent');
+  gctx.fillStyle=gr;gctx.fillRect(0,0,gW(),gH());
+}
+function gDrawMountains(){
+  gctx.fillStyle='rgba(80,20,0,0.5)';gctx.beginPath();gctx.moveTo(0,gH()*0.75);
+  const pts=[0,0,0.15,0.25,0.08,0.40,0.20,0.55,0.05,0.65,0.18,0.80,0.10,1.0,0.22,1.0,1,0,1];
+  for(let i=0;i<pts.length;i+=2)gctx.lineTo(gW()*pts[i],gH()*(0.75-pts[i+1]*0.35));
+  gctx.closePath();gctx.fill();
+}
+function gDrawClouds(ts){
+  gClouds.forEach(c=>{
+    c.x=(c.x+c.spd)%1.2;
+    gctx.globalAlpha=0.12;gctx.fillStyle='white';
+    for(let i=0;i<5;i++){gctx.beginPath();gctx.arc(c.x*gW()+i*c.w*gW()*0.25,c.y*gH()+Math.sin(i)*8,c.w*gW()*0.18,0,Math.PI*2);gctx.fill();}
+  });gctx.globalAlpha=1;
+}
+function gDrawPlatform(p,isMain){
+  const h=isMain?18:14;
+  gctx.save();gctx.shadowBlur=20;gctx.shadowColor=isMain?'rgba(120,60,255,0.4)':'rgba(200,200,255,0.3)';
+  const gr=gctx.createLinearGradient(p.x,p.y,p.x,p.y+h);
+  gr.addColorStop(0,gLighten(p.color,30));gr.addColorStop(1,p.color);
+  gctx.fillStyle=gr;gRoundRect(gctx,p.x,p.y,p.w,h,isMain?6:5);gctx.fill();
+  gctx.fillStyle='rgba(255,255,255,0.25)';gRoundRect(gctx,p.x+2,p.y,p.w-4,3,2);gctx.fill();
+  gctx.restore();
+}
+function gDrawAbility(a,ts){
+  const icons={speed:'⚡',jump:'🦘',freeze:'❄️',gun:'🔫'};
+  const cols={speed:'#ffd700',jump:'#00ff88',freeze:'#00cfff',gun:'#ff6b35'};
+  const col=cols[a.type];
+  gctx.save();gctx.shadowBlur=20;gctx.shadowColor=col;
+  const pulse=0.7+0.3*Math.sin(ts*0.005+a.phase);
+  gctx.strokeStyle=col;gctx.globalAlpha=pulse*0.6;gctx.lineWidth=2;
+  gctx.beginPath();gctx.arc(a.x,a.y,20*pulse,0,Math.PI*2);gctx.stroke();
+  gctx.globalAlpha=0.85;gctx.fillStyle=col+'33';gctx.beginPath();gctx.arc(a.x,a.y,16,0,Math.PI*2);gctx.fill();
+  gctx.globalAlpha=1;gctx.font='16px serif';gctx.textAlign='center';gctx.textBaseline='middle';
+  gctx.fillText(icons[a.type],a.x,a.y);gctx.restore();
+}
+function gDrawPlayer(p,idx,ts){
+  gctx.save();gctx.translate(p.x,p.y);gctx.scale(p.facing,1);
+  const isIT=idx===gTaggedIdx,frozen=p.frozen>0;
+  if(frozen){gctx.shadowBlur=15;gctx.shadowColor='#00cfff';}
+  if(isIT){gctx.shadowBlur=25;gctx.shadowColor=p.color;}
+  const bodyCol=frozen?'#a0d8ef':p.color;
+  const la=p.legAngle,aa=p.armAngle;
+  gctx.strokeStyle=bodyCol;gctx.lineWidth=3.5;gctx.lineCap='round';
+  gctx.save();gctx.rotate(-la);gctx.beginPath();gctx.moveTo(0,-10);gctx.lineTo(-6,18);gctx.stroke();gctx.restore();
+  gctx.save();gctx.rotate(la);gctx.beginPath();gctx.moveTo(0,-10);gctx.lineTo(6,18);gctx.stroke();gctx.restore();
+  gctx.beginPath();gctx.moveTo(0,-10);gctx.lineTo(0,-38);gctx.stroke();
+  gctx.save();gctx.translate(0,-34);gctx.rotate(-aa-0.3);gctx.beginPath();gctx.moveTo(0,0);gctx.lineTo(-14,12);gctx.stroke();gctx.restore();
+  gctx.save();gctx.translate(0,-34);gctx.rotate(aa+0.3);gctx.beginPath();gctx.moveTo(0,0);gctx.lineTo(14,12);gctx.stroke();gctx.restore();
+  gctx.fillStyle=bodyCol;gctx.shadowBlur=isIT?15:5;gctx.shadowColor=p.color;
+  gctx.beginPath();gctx.arc(0,-47,12,0,Math.PI*2);gctx.fill();
+  gctx.strokeStyle=frozen?'#005577':gDarken(p.color,30);gctx.lineWidth=2;gctx.stroke();
+  gctx.fillStyle=frozen?'#004466':gDarken(p.color,40);
+  gctx.beginPath();gctx.arc(4,-48,2,0,Math.PI*2);gctx.fill();
+  gctx.beginPath();gctx.arc(-2,-48,2,0,Math.PI*2);gctx.fill();
+  if(!frozen){
+    gctx.strokeStyle=gDarken(p.color,40);gctx.lineWidth=1.5;gctx.beginPath();
+    if(isIT)gctx.arc(1,-44,4,0.1,Math.PI-0.1);
+    else gctx.arc(1,-46,3,0.2,Math.PI-0.2,true);
+    gctx.stroke();
+  }
+  if(p.hasGun){
+    gctx.strokeStyle='#888';gctx.lineWidth=3;gctx.lineCap='round';
+    gctx.save();gctx.translate(14,-28);gctx.beginPath();gctx.moveTo(0,0);gctx.lineTo(14,-2);gctx.stroke();
+    gctx.fillStyle='#666';gctx.fillRect(0,-4,8,6);gctx.restore();
+  }
+  if(isIT){
+    gctx.fillStyle=p.color;gctx.shadowBlur=10;gctx.shadowColor=p.color;
+    gctx.font='bold 11px Space Mono, monospace';gctx.textAlign='center';
+    gctx.scale(p.facing,1);gctx.fillText('IT',0,-65);
+  }
+  if(p.tagFlash>0){
+    gctx.globalAlpha=p.tagFlash/8;gctx.strokeStyle='#ffffff';gctx.lineWidth=3;
+    gctx.shadowBlur=20;gctx.shadowColor='#ffffff';
+    gctx.beginPath();gctx.arc(0,-30,35,0,Math.PI*2);gctx.stroke();
+  }
+  if(p.speedBoost>0){
+    gctx.globalAlpha=0.3;gctx.fillStyle='#ffd700';
+    gctx.beginPath();gctx.arc(-8*p.facing,-30,8,0,Math.PI*2);gctx.fill();
+    gctx.beginPath();gctx.arc(-18*p.facing,-30,5,0,Math.PI*2);gctx.fill();
+  }
+  gctx.restore();
+  gctx.save();gctx.font='600 10px Exo 2, sans-serif';gctx.textAlign='center';
+  gctx.fillStyle=p.frozen>0?'#00cfff':p.color;gctx.shadowBlur=8;gctx.shadowColor=p.color;
+  gctx.fillText(p.name,p.x,p.y-66);gctx.restore();
+}
+
+function gUpdateHUD(){
+  const hp=document.getElementById('gHudPlayers'); hp.innerHTML='';
+  gPlayers.forEach((p,i)=>{
+    const isIT=i===gTaggedIdx,secs=Math.round((gTagTime[i]||0)/1000);
+    const d=document.createElement('div'); d.className='g-hcard';
+    d.style.borderColor=isIT?p.color:'rgba(255,255,255,0.1)';
+    d.style.boxShadow=isIT?`0 0 15px ${p.color}66`:'none';
+    d.innerHTML=`<div class="g-hname" style="color:${p.color}">${p.name}</div>
+      <div class="g-hstatus">${isIT?'🔴 IT':'🟢 Safe'}</div>
+      <div class="g-hability">${gAbilLabel(p)}</div>
+      <div style="font-family:'Space Mono',monospace;font-size:0.6rem;color:rgba(200,200,200,0.4)">⏱ ${secs}s</div>`;
+    hp.appendChild(d);
+  });
+}
+function gAbilLabel(p){
+  if(p.frozen>0)return`<span style="color:#00cfff">❄️ ${(p.frozen/1000).toFixed(1)}s</span>`;
+  if(p.hasGun)return`<span style="color:#ff6b35">🔫 ${(p.abilityTimer/1000).toFixed(1)}s</span>`;
+  if(p.speedBoost>0)return`<span style="color:#ffd700">⚡ Fast!</span>`;
+  if(p.jumpBoost>0)return`<span style="color:#00ff88">🦘 Jump!</span>`;
+  return'';
+}
+
+function gEndGame(){
+  gRunning=false; clearInterval(gTimerInt); cancelAnimationFrame(gAnimFrame);
+  let maxT=0,loser=0;
+  gPlayers.forEach((p,i)=>{if((gTagTime[i]||0)>maxT){maxT=gTagTime[i];loser=i;}});
+  document.getElementById('gOverMsg').textContent=
+    `${gPlayers[loser].name} was IT the longest (${(maxT/1000).toFixed(1)}s)! 😬`;
+  document.getElementById('gOver').classList.add('vis');
+  document.getElementById('gHud').classList.remove('vis');
+  document.getElementById('gControls').classList.remove('vis');
+  document.getElementById('gPauseHint').classList.remove('vis');
+}
+
+// helpers
+function gRoundRect(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();}
+function gLighten(hex,a){let r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return`rgb(${Math.min(255,r+a)},${Math.min(255,g+a)},${Math.min(255,b+a)})`;}
+function gDarken(hex,a){let r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return`rgb(${Math.max(0,r-a)},${Math.max(0,g-a)},${Math.max(0,b-a)})`;}
+window.addEventListener('resize',()=>{if(gRunning){gc.width=window.innerWidth;gc.height=window.innerHeight;}});
 </script>
 </body>
 </html>
