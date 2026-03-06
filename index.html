@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Unit 6 — Lists, Loops & Traversals</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f0ede8;
+  --card-front: #1c1c2e;
+  --card-back: #16213e;
+  --accent: #ff6b35;
+  --accent2: #00b4d8;
+  --accent3: #06d6a0;
+  --warn: #ef233c;
+  --text-dark: #1c1c2e;
+  --text-light: #f0ede8;
+  --muted: #8a8a9a;
+  --surface: #e8e4de;
+  --border: #d4cfc8;
+  --white: #ffffff;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text-dark); min-height: 100vh; }
+
+/* HEADER */
+.header {
+  background: var(--card-front);
+  padding: 1.25rem 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 20px rgba(0,0,0,0.3);
+}
+.header-left { display: flex; flex-direction: column; gap: 0.2rem; }
+.header h1 { font-family: 'Space Mono', monospace; font-size: 1rem; color: var(--text-light); letter-spacing: -0.5px; }
+.header-sub { font-family: 'Space Mono', monospace; font-size: 0.65rem; color: var(--muted); }
+.live-badge {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.68rem;
+  color: var(--accent);
+  background: rgba(255,107,53,0.12);
+  border: 1px solid rgba(255,107,53,0.3);
+  padding: 0.3rem 0.8rem;
+  border-radius: 999px;
+  animation: pulse 2s ease-in-out infinite;
+  white-space: nowrap;
+}
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+/* TABS */
+.tabs {
+  display: flex;
+  background: var(--surface);
+  border-bottom: 2px solid var(--border);
+  padding: 0 1.5rem;
+  gap: 0;
+  overflow-x: auto;
+}
+.tab-btn {
+  padding: 0.9rem 1.3rem;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.88rem;
+  font-weight: 600;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--muted);
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.tab-btn:hover { color: var(--text-dark); }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* SECTIONS */
+.section { display: none; padding: 1.5rem; min-height: calc(100vh - 115px); }
+.section.active { display: block; }
+
+/* BUTTONS */
+.btn {
+  padding: 0.5rem 1.2rem;
+  border-radius: 8px;
+  border: 2px solid var(--text-dark);
+  background: var(--text-dark);
+  color: var(--text-light);
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.btn:hover { background: var(--accent); border-color: var(--accent); }
+.btn.outline { background: transparent; color: var(--text-dark); }
+.btn.outline:hover { background: var(--text-dark); color: var(--text-light); }
+.btn.green { background: var(--accent3); border-color: var(--accent3); color: #052e16; }
+.btn.green:hover { background: #04b87a; border-color: #04b87a; }
+.btn.danger { background: var(--warn); border-color: var(--warn); color: white; }
+.btn.danger:hover { background: #c8102e; border-color: #c8102e; }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ====== FLASHCARDS ====== */
+.fc-wrap { max-width: 700px; margin: 0 auto; }
+.fc-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.fc-counter { font-family: 'Space Mono', monospace; font-size: 0.82rem; color: var(--muted); }
+.fc-btns { display: flex; gap: 0.5rem; }
+
+.stats-row {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+.chip {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.7rem;
+  padding: 0.3rem 0.8rem;
+  border-radius: 999px;
+  border: 1.5px solid;
+}
+.chip.known { border-color: var(--accent3); color: var(--accent3); background: rgba(6,214,160,0.07); }
+.chip.still { border-color: var(--warn); color: var(--warn); background: rgba(239,35,60,0.07); }
+.chip.total { border-color: var(--accent2); color: var(--accent2); background: rgba(0,180,216,0.07); }
+
+.prog-bar { width: 100%; height: 5px; background: var(--border); border-radius: 999px; overflow: hidden; margin-bottom: 1rem; }
+.prog-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 999px; transition: width 0.35s ease; }
+
+.hint-text { text-align: center; font-size: 0.72rem; color: var(--muted); margin-bottom: 0.75rem; }
+
+/* FLIP CARD */
+.flip-card { width: 100%; height: 280px; perspective: 1200px; cursor: pointer; margin-bottom: 1.25rem; }
+.flip-inner {
+  position: relative; width: 100%; height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.5s cubic-bezier(0.4,0,0.2,1);
+}
+.flip-card.flipped .flip-inner { transform: rotateY(180deg); }
+.flip-front, .flip-back {
+  position: absolute; inset: 0; border-radius: 14px;
+  backface-visibility: hidden;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 1.75rem; text-align: center;
+}
+.flip-front { background: var(--card-front); color: var(--text-light); border: 2px solid #2a2a40; }
+.flip-back { background: var(--card-back); color: var(--text-light); transform: rotateY(180deg); border: 2px solid var(--accent2); }
+.card-lbl { font-family: 'Space Mono', monospace; font-size: 0.6rem; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 0.85rem; }
+.flip-front .card-lbl { color: var(--accent); }
+.flip-back .card-lbl { color: var(--accent2); }
+.card-term { font-size: clamp(1rem, 3vw, 1.5rem); font-weight: 700; line-height: 1.3; }
+.card-def { font-size: clamp(0.82rem, 2vw, 0.95rem); line-height: 1.65; color: #b0baca; }
+.card-code {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.72rem;
+  background: rgba(0,0,0,0.4);
+  padding: 0.7rem 0.9rem;
+  border-radius: 8px;
+  margin-top: 0.75rem;
+  text-align: left;
+  width: 100%;
+  color: #a5f3fc;
+  line-height: 1.65;
+  white-space: pre;
+  overflow-x: auto;
+  max-height: 100px;
+}
+
+.nav-row { display: flex; align-items: center; justify-content: center; gap: 1rem; margin-bottom: 1.25rem; }
+.nav-btn {
+  width: 44px; height: 44px; border-radius: 50%;
+  border: 2px solid var(--border); background: white;
+  font-size: 1rem; cursor: pointer; transition: all 0.15s;
+  display: flex; align-items: center; justify-content: center;
+}
+.nav-btn:hover { border-color: var(--accent); background: var(--accent); color: white; }
+.nav-pos { font-family: 'Space Mono', monospace; font-size: 0.78rem; color: var(--muted); }
+.action-row { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
+
+/* ====== QUIZ ====== */
+.quiz-wrap { max-width: 720px; margin: 0 auto; }
+.quiz-topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.75rem; }
+.score-box { font-family: 'Space Mono', monospace; font-size: 0.8rem; color: var(--muted); }
+.score-box strong { font-size: 1.5rem; color: var(--accent2); display: block; line-height: 1; }
+.q-progress { width: 100%; height: 7px; background: var(--border); border-radius: 999px; overflow: hidden; margin-bottom: 1.5rem; }
+.q-progress-fill { height: 100%; background: linear-gradient(90deg,var(--accent),var(--accent2)); border-radius: 999px; transition: width 0.4s; }
+
+.q-box {
+  background: var(--white); border-radius: 14px;
+  padding: 1.75rem; border: 2px solid var(--border);
+  margin-bottom: 1.25rem;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+}
+.q-label { font-family: 'Space Mono', monospace; font-size: 0.65rem; color: var(--accent); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 0.65rem; }
+.q-text { font-size: 0.97rem; font-weight: 600; line-height: 1.55; margin-bottom: 1.25rem; color: var(--text-dark); }
+.q-text code { font-family: 'Space Mono', monospace; font-size: 0.8rem; background: #f0ede8; padding: 0.1rem 0.35rem; border-radius: 4px; color: #c026d3; }
+.q-code {
+  font-family: 'Space Mono', monospace; font-size: 0.75rem;
+  background: #1c1c2e; color: #a5f3fc;
+  padding: 1rem; border-radius: 10px;
+  margin-bottom: 1.25rem; line-height: 1.7;
+  white-space: pre; overflow-x: auto;
+}
+.opts { display: flex; flex-direction: column; gap: 0.55rem; }
+.opt {
+  padding: 0.7rem 1rem; border-radius: 9px;
+  border: 2px solid var(--border); background: var(--bg);
+  font-family: 'DM Sans', sans-serif; font-size: 0.88rem;
+  cursor: pointer; text-align: left; transition: all 0.15s;
+  color: var(--text-dark); font-weight: 500;
+}
+.opt:hover:not(:disabled) { border-color: var(--accent2); background: rgba(0,180,216,0.05); }
+.opt.correct { border-color: var(--accent3); background: rgba(6,214,160,0.1); color: #065f46; font-weight: 700; }
+.opt.wrong { border-color: var(--warn); background: rgba(239,35,60,0.08); color: #881337; }
+.opt:disabled { cursor: default; }
+.fb {
+  margin-top: 0.9rem; padding: 0.7rem 1rem; border-radius: 9px;
+  font-size: 0.85rem; line-height: 1.5; display: none;
+}
+.fb.show { display: block; }
+.fb.correct { background: rgba(6,214,160,0.09); color: #065f46; border: 1.5px solid rgba(6,214,160,0.3); }
+.fb.wrong { background: rgba(239,35,60,0.07); color: #7f1d1d; border: 1.5px solid rgba(239,35,60,0.2); }
+.quiz-nav { display: flex; justify-content: flex-end; margin-top: 0; }
+
+/* RESULTS */
+.results { max-width: 480px; margin: 2.5rem auto; text-align: center; }
+.big-pct {
+  font-family: 'Space Mono', monospace; font-size: 5rem; font-weight: 700;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  line-height: 1; margin-bottom: 0.4rem;
+}
+.grade { font-size: 1.1rem; font-weight: 700; margin-bottom: 0.5rem; }
+.result-msg { color: var(--muted); font-size: 0.88rem; margin-bottom: 1.5rem; }
+.wrong-review { text-align: left; background: white; border-radius: 12px; padding: 1.1rem; border: 1.5px solid var(--border); margin-bottom: 1.25rem; }
+.wrong-review h4 { font-family: 'Space Mono', monospace; font-size: 0.72rem; color: var(--warn); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.65rem; }
+.wr-item { font-size: 0.8rem; padding: 0.4rem 0; border-bottom: 1px solid var(--border); color: #555; line-height: 1.4; }
+.wr-item:last-child { border-bottom: none; }
+.wr-item strong { color: var(--text-dark); display: block; margin-bottom: 0.1rem; }
+
+/* ALL CARDS */
+.all-wrap { max-width: 700px; margin: 0 auto; }
+.all-search {
+  width: 100%; padding: 0.75rem 1rem;
+  border: 2px solid var(--border); border-radius: 10px;
+  font-family: 'DM Sans', sans-serif; font-size: 0.9rem;
+  background: white; color: var(--text-dark);
+  margin-bottom: 1rem; outline: none;
+  transition: border-color 0.2s;
+}
+.all-search:focus { border-color: var(--accent2); }
+.all-item {
+  display: flex; gap: 1rem;
+  padding: 0.8rem 1rem; background: white; border-radius: 10px;
+  margin-bottom: 0.45rem; border: 1.5px solid var(--border);
+  font-size: 0.86rem; align-items: flex-start;
+  transition: border-color 0.2s;
+}
+.all-item:hover { border-color: var(--accent2); }
+.all-term { font-weight: 700; min-width: 130px; flex-shrink: 0; font-size: 0.83rem; color: var(--text-dark); }
+.all-def { color: #555; line-height: 1.45; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <h1>Unit 6 — Lists, Loops & Traversals</h1>
+    <span class="header-sub">AP Computer Science Principles · JavaScript</span>
+  </div>
+  <span class="live-badge">⚡ TEST FRIDAY</span>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('flashcards',this)">🃏 Flashcards</button>
+  <button class="tab-btn" onclick="switchTab('quiz',this)">🧠 Quiz</button>
+  <button class="tab-btn" onclick="switchTab('allcards',this)">📋 All Terms</button>
+</div>
+
+<!-- FLASHCARDS -->
+<div id="flashcards" class="section active">
+  <div class="fc-wrap">
+    <div class="fc-topbar">
+      <span class="fc-counter">Card <span id="fcNum">1</span> of <span id="fcTotal">0</span></span>
+      <div class="fc-btns">
+        <button class="btn outline" onclick="shuffleCards()">🔀 Shuffle</button>
+        <button class="btn outline" onclick="resetCards()">↺ Reset</button>
+      </div>
+    </div>
+    <div class="stats-row">
+      <span class="chip known">✓ Know it: <span id="knownCount">0</span></span>
+      <span class="chip still">✗ Still learning: <span id="stillCount">0</span></span>
+      <span class="chip total">Total: <span id="totalCount">0</span></span>
+    </div>
+    <div class="prog-bar"><div class="prog-fill" id="fcProg" style="width:0%"></div></div>
+    <p class="hint-text">Click the card to flip it · Arrow buttons or keyboard ← → to navigate</p>
+    <div class="flip-card" id="flipCard" onclick="flipCard()">
+      <div class="flip-inner">
+        <div class="flip-front">
+          <div class="card-lbl">Term</div>
+          <div class="card-term" id="cardTerm">Loading...</div>
+        </div>
+        <div class="flip-back">
+          <div class="card-lbl">Definition</div>
+          <div class="card-def" id="cardDef"></div>
+          <div class="card-code" id="cardCode" style="display:none"></div>
+        </div>
+      </div>
+    </div>
+    <div class="nav-row">
+      <button class="nav-btn" onclick="prevCard()" title="Previous">←</button>
+      <span class="nav-pos" id="fcPos">1 / 0</span>
+      <button class="nav-btn" onclick="nextCard()" title="Next">→</button>
+    </div>
+    <div class="action-row">
+      <button class="btn danger" onclick="markCard(false)">✗ Still Learning</button>
+      <button class="btn green" onclick="markCard(true)">✓ Know It!</button>
+    </div>
+  </div>
+</div>
+
+<!-- QUIZ -->
+<div id="quiz" class="section">
+  <div class="quiz-wrap">
+    <div id="quizActive">
+      <div class="quiz-topbar">
+        <div class="score-box"><strong id="qScore">0</strong>score</div>
+        <div style="font-family:'Space Mono',monospace;font-size:0.78rem;color:var(--muted)">Q <span id="qNum">1</span> / <span id="qTot">0</span></div>
+        <button class="btn outline" onclick="restartQuiz()">↺ Restart</button>
+      </div>
+      <div class="q-progress"><div class="q-progress-fill" id="qBar" style="width:0%"></div></div>
+      <div class="q-box" id="qBox"></div>
+      <div class="quiz-nav"><button class="btn" id="nextBtn" onclick="nextQ()" style="display:none">Next →</button></div>
+    </div>
+    <div id="quizResults" style="display:none">
+      <div class="results">
+        <div class="big-pct" id="finalPct"></div>
+        <div class="grade" id="finalGrade"></div>
+        <p class="result-msg" id="finalMsg"></p>
+        <div class="wrong-review" id="wrongReview" style="display:none">
+          <h4>Review These:</h4>
+          <div id="wrongItems"></div>
+        </div>
+        <button class="btn" onclick="restartQuiz()" style="width:100%;justify-content:center">🔁 Try Again</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ALL CARDS -->
+<div id="allcards" class="section">
+  <div class="all-wrap">
+    <input class="all-search" type="text" placeholder="🔍 Search terms..." oninput="filterCards(this.value)" />
+    <div id="allList"></div>
+  </div>
+</div>
+
+<script>
+// ─── DATA ───────────────────────────────────────────────────────────────────
+const CARDS = [
+  {t:"List (Array)", d:"An ordered collection of elements stored together. Denoted by square brackets [ ]. 'Lists' and 'Arrays' mean the same thing in this class.", c:'var fruits = ["apple", "banana", "cherry"];\n//index:        0          1           2'},
+  {t:"Element", d:"An individual value stored inside a list. Each element has its own unique numbered position called an index.", c:'var nums = [10, 20, 30];\n// 10, 20, and 30 are all elements'},
+  {t:"Index", d:"The numbered position of an element in a list. JavaScript lists are ZERO-INDEXED — the first element is always at index 0, not 1.", c:'var c = ["red","green","blue"];\n// "red"   → index 0\n// "green" → index 1\n// "blue"  → index 2'},
+  {t:"Zero-Indexed", d:"Counting starts at 0, not 1. First element = index 0, second = index 1, etc. This is how ALL JavaScript lists work.", c:'var a = ["x","y","z"];\na[0]; // "x"  ← FIRST\na[1]; // "y"\na[2]; // "z"  ← LAST'},
+  {t:".length property", d:"Returns how many elements are in a list. The LAST valid index is ALWAYS list.length - 1.", c:'var items = ["a","b","c","d"];\nitems.length;            // 4\nitems[items.length - 1]; // "d" (last)'},
+  {t:"undefined", d:"What JavaScript returns when you access an index that doesn't exist in a list. No error, just 'undefined'.", c:'var list = ["a","b","c"];\nlist[5]; // undefined\n// index 5 doesn\'t exist!'},
+  {t:"Accessing an Element", d:"Use the list name followed by the index in square brackets: listName[index]", c:'var cities = ["Paris","Tokyo","NYC"];\nconsole.log(cities[0]); // "Paris"\nconsole.log(cities[1]); // "Tokyo"'},
+  {t:"Changing an Element", d:"Access the element by index and assign a new value with =. The old value is completely replaced.", c:'var c = ["red","green","blue"];\nc[1] = "yellow";\n// Now: ["red","yellow","blue"]'},
+  {t:"Data Abstraction", d:"Lists are an example of data abstraction — they let you name and work with large collections of data without caring about how it's stored at a low level. Makes programs easier to build and maintain.", c:null},
+  {t:"String Indexes", d:"Just like list elements, each CHARACTER in a string also has an index starting at 0. Strings have a .length property too.", c:'var w = "Hello";\n// H=0  e=1  l=2  l=3  o=4\nw.length;  // 5\nw[0];      // "H"'},
+  {t:".substring(start, end)", d:"Returns part of a string from 'start' index up to but NOT INCLUDING 'end' index. Works on strings, not lists.", c:'var s = "Up or Down??";\ns.substring(3, 7); // "or D"\n//   starts at 3 ↑  stops before 7'},
+  {t:".push(item)", d:"Adds one element to the END of a list. The list gets one longer. This is standard JavaScript.", c:'var colors = ["red","green"];\ncolors.push("blue");\n// Now: ["red","green","blue"]'},
+  {t:".pop()", d:"Removes and returns the element from the END of a list. The list gets one shorter. Standard JavaScript.", c:'var c = ["DC","LA","NYC"];\nc.pop();\n// Now: ["DC","LA"]'},
+  {t:".unshift(item)", d:"Adds an element to the BEGINNING of a list. All existing elements shift right (their indexes increase by 1). Standard JavaScript.", c:'var n = ["Jason","Vince"];\nn.unshift("Jack");\n// Now: ["Jack","Jason","Vince"]'},
+  {t:".shift()", d:"Removes the element from the BEGINNING of a list. All other elements shift left (indexes decrease by 1). Standard JavaScript.", c:'var y = [1776, 1812, 1941];\ny.shift();\n// Now: [1812, 1941]'},
+  {t:".reverse()", d:"Reverses the order of ALL elements in a list IN PLACE — it changes the original list permanently.", c:'var c = ["red","green","blue"];\nc.reverse();\n// Now: ["blue","green","red"]'},
+  {t:".join(separator)", d:"Converts a list into a single string. The separator argument goes between each element. Default is a comma.", c:'var w = ["Hello","World"];\nw.join(" ");  // "Hello World"\nw.join("-");  // "Hello-World"\nw.join("");   // "HelloWorld"'},
+  {t:"appendItem(list, item)", d:"CODE.ORG ONLY ⚠️ — adds an item to the end of a list. Equivalent to .push() in real JavaScript. Will NOT work in Replit or a browser.", c:'appendItem(myList, "newItem");\n// ⚠️ Code.org ONLY!'},
+  {t:"removeItem(list, index)", d:"CODE.ORG ONLY ⚠️ — removes the element at a given index. Items to the right shift left. Will NOT work in Replit.", c:'removeItem(myList, 2);\n// ⚠️ Code.org ONLY!'},
+  {t:"insertItem(list, index, item)", d:"CODE.ORG ONLY ⚠️ — inserts a new item at a specific index. All items at that index and to the right shift right. Will NOT work in Replit.", c:'insertItem(myList, 1, "hi");\n// ⚠️ Code.org ONLY!'},
+  {t:"i++ (Increment)", d:"Shorthand for i = i + 1. Adds exactly 1 to the variable. Used constantly in for loops.", c:'var i = 5;\ni++;\nconsole.log(i); // 6'},
+  {t:"i-- (Decrement)", d:"Shorthand for i = i - 1. Subtracts exactly 1 from the variable. Used in reverse loops.", c:'var i = 5;\ni--;\nconsole.log(i); // 4'},
+  {t:"Loop", d:"A programming tool that repeats a block of code over and over until a stopping condition becomes false. Used to avoid writing the same code many times.", c:null},
+  {t:"Iteration", d:"One single pass through a loop — one execution of the loop body. 'To iterate' means to repeat. Each loop cycle = one iteration.", c:null},
+  {t:"Stopping Condition", d:"The boolean expression checked in a loop. As long as it's TRUE the loop runs. When it becomes FALSE the loop ends. If it never becomes false → infinite loop.", c:'for (var i = 0; i < 5; i++) {\n//              ↑ stopping condition\n// runs while i < 5 is true\n}'},
+  {t:"Infinite Loop ⚠️", d:"A loop whose stopping condition NEVER becomes false. It runs forever and can freeze or crash your browser. Most commonly caused by forgetting to increment the counter.", c:'var i = 0;\nwhile (i < 5) {\n  console.log(i);\n  // forgot i++ !!! → INFINITE LOOP\n}'},
+  {t:"While Loop", d:"Repeats code AS LONG AS a condition is true. Needs 3 things: a counter variable, a condition, and an increment. Best when you DON'T know how many iterations you need.", c:'var i = 0;\nwhile (i < 5) {\n  console.log(i);\n  i++; // ← MUST have this!\n}'},
+  {t:"For Loop", d:"Combines initialization, condition, and increment all in one line. Best when you DO know how many times to loop.", c:'// for(init; condition; increment)\nfor (var i = 0; i < 5; i++) {\n  console.log(i); // 0,1,2,3,4\n}'},
+  {t:"For Loop — 3 Parts", d:"1) Initialization: set the starting value. 2) Condition: keep looping while this is true. 3) Increment: how to change the counter after each pass.", c:'for (var i=0;  i<10;  i++) {\n//   ① init  ②cond ③inc\n}'},
+  {t:"For Loop in Reverse", d:"Start the iterator at the HIGHEST value, stop when it's less than the minimum, and DECREMENT (i--) each time instead of incrementing.", c:'for (var i = 5; i > 0; i--) {\n  console.log(i); // 5, 4, 3, 2, 1\n}'},
+  {t:"Loops vs Functions", d:"Use a FUNCTION when you need to reuse the same code at multiple different places in your program. Use a LOOP when the same code needs to repeat multiple times IN A ROW in the same spot.", c:null},
+  {t:"Iterator Variable (i)", d:"The variable used to track your current position in a loop. Usually named 'i' which is short for 'index'. It changes value with every iteration.", c:'for (var i = 0; i < list.length; i++) {\n  // i = 0 first loop\n  // i = 1 second loop, etc.\n}'},
+  {t:"Nested Loop", d:"A loop INSIDE another loop. For EVERY SINGLE iteration of the outer loop, the ENTIRE inner loop runs completely from start to finish.", c:'for (var i=0; i<3; i++) {    // outer\n  for (var j=0; j<3; j++) {  // inner\n    // runs 3×3 = 9 times total\n  }\n}'},
+  {t:"Looping Through a List", d:"Use a for loop with i starting at 0 and stopping when i < list.length. Access each element inside the loop using list[i].", c:'var a = ["Bear","Sloth","Lion"];\nfor (var i = 0; i < a.length; i++) {\n  console.log(a[i]);\n  // prints each animal\n}'},
+  {t:"Traversal", d:"The process of visiting EACH element in a list, one at a time, usually by using a for loop. Two main types: Filter and Reduce.", c:'for (var i = 0; i < list.length; i++) {\n  // Accessing list[i] = traversal\n}'},
+  {t:"Filter Pattern", d:"A traversal that creates a NEW list containing ONLY elements from the original that meet a condition. 4 steps: original list → empty list → for loop → if condition → push.", c:'var evens = [];\nfor (var i=0; i<nums.length; i++) {\n  if (nums[i] % 2 === 0) {\n    evens.push(nums[i]);\n  }\n}'},
+  {t:"Reduce Pattern", d:"A traversal that reduces an ENTIRE list down to a single value — like finding the minimum, maximum, or computing a sum.", c:'var min = nums[0];\nfor (var i=1; i<nums.length; i++) {\n  if (nums[i] < min) min = nums[i];\n}\n// min = smallest number'},
+  {t:"getColumn(table, col)", d:"CODE.ORG SPECIFIC — retrieves all values from a specific column in a data table and returns them as a list.", c:'var names = getColumn(students, "Name");\n// returns list of all names'},
+  {t:"List Scrolling Pattern", d:"An app pattern that shows ONE item from a list at a time. Uses an index variable plus buttons to move forward or backward through the list.", c:'var idx = 0;\n// NEXT btn: if(idx<list.length-1) idx++;\n// PREV btn: if(idx>0) idx--;'},
+  {t:"Multi-List Filter Pattern", d:"Filter MULTIPLE lists at the SAME TIME using the same index. All lists must be the same length. Reset all filtered lists at the start of the function each time it runs.", c:'var f1=[], f2=[];\nfor(var i=0; i<main.length; i++){\n  if(main[i]===cond){\n    f1.push(list1[i]);\n    f2.push(list2[i]);\n  }\n}'},
+  {t:"Last Index Formula", d:"The last valid index of any list is always list.length - 1. This is because lists start at 0, so a list of 5 elements has indexes 0,1,2,3,4.", c:'var a = [10,20,30,40,50];\n// length = 5\n// last index = 5-1 = 4\na[a.length-1]; // 50'},
+  {t:"Code.org vs Real JS", d:"appendItem, removeItem, and insertItem ONLY work in Code.org. In Replit or a real browser use: .push(), .pop(), .shift(), .unshift() instead.", c:'// Code.org:  appendItem(list, item)\n// Real JS:   list.push(item)\n\n// Code.org:  removeItem(list, 0)\n// Real JS:   list.shift()'},
+];
+
+const QUESTIONS = [
+  {q:"What index is the FIRST element of a JavaScript list at?", opts:["1","0","-1","Depends on the list"], a:1, e:"JavaScript is zero-indexed. The first element is ALWAYS at index 0, not 1."},
+  {q:"A list has 7 elements. What is the index of the LAST element?", opts:["7","8","6","5"], a:2, e:"Last index = length - 1 = 7 - 1 = 6."},
+  {q:"What does <code>var x=[10,20,30]; console.log(x.length);</code> output?", opts:["2","3","30","undefined"], a:1, e:".length returns the count of elements, which is 3."},
+  {q:"What does JavaScript return when you access an index that doesn't exist?", opts:["null","0","false","undefined"], a:3, e:"JavaScript returns 'undefined' for out-of-bounds indexes — no error."},
+  {q:"Which method adds an element to the END of a list?", opts:[".unshift()",".shift()",".push()",".pop()"], a:2, e:".push() adds to the end. Tip: push = shove onto the back."},
+  {q:"Which method removes an element from the BEGINNING of a list?", opts:[".pop()",".push()",".unshift()",".shift()"], a:3, e:".shift() removes from the beginning. All others shift left."},
+  {q:"Which method adds an element to the BEGINNING of a list?", opts:[".push()",".pop()",".unshift()",".shift()"], a:2, e:".unshift() adds to the beginning. All others shift right."},
+  {q:"After <code>var a=[1,2,3]; a.pop();</code> what is <code>a</code>?", opts:["[1,2,3]","[2,3]","[1,2]","[1,3]"], a:2, e:".pop() removes the LAST element (3), leaving [1,2]."},
+  {q:"After <code>var a=[1,2,3]; a.shift();</code> what is <code>a</code>?", opts:["[1,2,3]","[2,3]","[1,2]","[1,3]"], a:1, e:".shift() removes the FIRST element (1), leaving [2,3]."},
+  {q:'What does <code>["a","b","c"].reverse()</code> produce?', opts:['["a","b","c"]','["c","b","a"]','["c","a","b"]',"undefined"], a:1, e:'.reverse() reverses in-place: ["c","b","a"].'},
+  {q:'What does <code>["Hi","there"].join(" ")</code> return?', opts:['"Hi,there"','"Hithere"','"Hi there"','"Hi" "there"'], a:2, e:'.join(" ") joins elements with a space: "Hi there".'},
+  {q:"Which is a CODE.ORG ONLY function that won't work in Replit?", opts:[".push()","appendItem()",".length",".reverse()"], a:1, e:"appendItem(), removeItem(), and insertItem() ONLY work in Code.org's environment."},
+  {q:"What does <code>i++</code> mean?", opts:["i = i - 1","i = i * 2","i = i + 1","i = i + i"], a:2, e:"i++ is shorthand for i = i + 1. It increments by 1."},
+  {q:"What causes an infinite loop?", opts:["Using i++","The stopping condition never becomes false","Having too many elements","Using for loops on lists"], a:1, e:"If the stopping condition is always true, the loop never ends."},
+  {q:"When should you use a WHILE loop instead of a FOR loop?", opts:["Looping through a list","You know exactly how many times","You DON'T know how many times","Looping backwards"], a:2, e:"While loops are best when the number of iterations is unknown upfront."},
+  {q:"What are the 3 parts inside a for loop's parentheses?", opts:["start, stop, restart","init, condition, increment","counter, length, step","begin, check, update"], a:1, e:"for(initialization; condition; increment) — in that order."},
+  {q:"To loop through ALL elements of 'myList', which condition should you use?", opts:["i <= myList.length","i < myList.length","i > myList.length","i == myList.length"], a:1, e:"Use i < myList.length. Using <= would try to access an index that doesn't exist (undefined)."},
+  {q:"Outer loop runs 4 times, inner loop runs 3 times per pass. Total inner iterations?", opts:["4","3","7","12"], a:3, e:"Total = outer × inner = 4 × 3 = 12 total inner iterations."},
+  {q:"What is a traversal?", opts:["Removing all elements from a list","Visiting each item in a list one at a time","Adding items to a new list","Sorting a list by value"], a:1, e:"A traversal accesses each element in a list sequentially, one at a time."},
+  {q:'What does <code>"Hello World".substring(6, 11)</code> return?', opts:['"World"','"World "','" World"','"Hello"'], a:0, e:'Characters from index 6 up to but NOT including 11: W(6)o(7)r(8)l(9)d(10) = "World".'},
+  {q:"What is the purpose of the filter traversal pattern?", opts:["Sort the list","Find the minimum value","Create a new list with only elements that pass a condition","Reverse the list"], a:2, e:"Filter creates a subset of the original list based on a condition check."},
+  {q:"<code>for(var i=0; i<5; i++)</code> — how many times does the body execute?", opts:["4","5","6","0"], a:1, e:"i goes 0,1,2,3,4 — that's 5 total iterations. Stops when i reaches 5."},
+  {q:"What does 'i' typically stand for when used in a loop?", opts:["Integer","Index","Iteration","Item"], a:1, e:"In loops, 'i' is short for 'index' — it tracks your position as you traverse."},
+  {q:'After <code>var a=["x","y","z"]; a[1]="Q";</code>, what is <code>a</code>?', opts:['["x","y","z"]','["x","Q","y","z"]','["x","Q","z"]','["Q","y","z"]'], a:2, e:'a[1]="Q" replaces "y" at index 1. Result: ["x","Q","z"].'},
+  {q:"In the multi-list filter pattern, why must all lists be the same length?", opts:["JavaScript requires it","So the same index i grabs matching items from all lists","To avoid infinite loops","Code.org requires it"], a:1, e:"Same index i is used for all lists simultaneously, so they must correspond 1-to-1."},
+  {q:"What does <code>[1,2,3,4].length - 1</code> equal?", opts:["4","2","3","1"], a:2, e:"length=4, so 4-1=3. This equals the last valid index."},
+  {q:"What happens if you do <code>list[list.length]</code>?", opts:["Returns the last element","Returns undefined","Throws an error","Returns 0"], a:1, e:"list.length is one past the last valid index, so you get undefined."},
+  {q:"What does the reduce traversal pattern produce?", opts:["A filtered list","A reversed list","A single value like a min, max, or sum","A sorted list"], a:2, e:"Reduce collapses the entire list into one result value."},
+  {q:"Which loop is BEST when you know EXACTLY how many repetitions are needed?", opts:["while loop","for loop","Either is identical","Neither works"], a:1, e:"For loops are designed for known iteration counts. While loops for unknown counts."},
+  {q:"What is the correct way to access the LAST element of any list?", opts:["list[list.length]","list[list.length - 1]","list[-1]","list[last]"], a:1, e:"Last index = length - 1. For example, if length is 5, last index is 4."},
+  {q:"What does this loop do?\n<code>for(var i=5; i>0; i--)</code>", opts:["Counts 0 to 5","Counts 5 to 0, stops at 0","Counts 5 to 1, then stops","Runs forever"], a:2, e:"Starts at 5, decrements each time. Stops when i reaches 0 (condition i>0 is false). Prints 5,4,3,2,1."},
+  {q:"You want to loop through a list but only when a user clicks a button repeatedly. Which loop type makes more sense?", opts:["for loop","while loop","nested loop","No loop needed"], a:1, e:"While loops work best for unknown/conditional iteration counts, like user-driven events."},
+  {q:"What is wrong with this code? <code>var i=0; while(i<5){ console.log(i); }</code>", opts:["Nothing is wrong","The condition is backwards","Missing i++ — will cause infinite loop","Should be a for loop"], a:2, e:"There's no i++ so i stays 0 forever. The condition i<5 never becomes false → infinite loop."},
+  {q:"After filtering, should you use the original list or the filtered list to display results?", opts:["Always the original list","The filtered list","Either one","Neither"], a:1, e:"The filtered list contains only the elements that matched your condition — that's the result to use."},
+  {q:'What does <code>["a","b","c"].join("")</code> return?', opts:['"a,b,c"','"a b c"','"abc"','"a-b-c"'], a:2, e:'join("") uses an empty string separator, so elements are just concatenated: "abc".'},
+];
+
+// ─── FLASHCARD STATE ────────────────────────────────────────────────────────
+let cards = [...CARDS];
+let ci = 0;
+let known = new Set();
+let still = new Set();
+
+function renderCard() {
+  const c = cards[ci];
+  document.getElementById('cardTerm').textContent = c.t;
+  document.getElementById('cardDef').textContent = c.d;
+  const ce = document.getElementById('cardCode');
+  if (c.c) { ce.textContent = c.c; ce.style.display = 'block'; }
+  else { ce.style.display = 'none'; }
+  document.getElementById('fcNum').textContent = ci + 1;
+  document.getElementById('fcTotal').textContent = cards.length;
+  document.getElementById('fcPos').textContent = (ci+1) + ' / ' + cards.length;
+  document.getElementById('totalCount').textContent = cards.length;
+  document.getElementById('knownCount').textContent = known.size;
+  document.getElementById('stillCount').textContent = still.size;
+  document.getElementById('fcProg').style.width = ((ci+1)/cards.length*100) + '%';
+  document.getElementById('flipCard').classList.remove('flipped');
+}
+
+function flipCard() { document.getElementById('flipCard').classList.toggle('flipped'); }
+function nextCard() { if(ci < cards.length-1){ ci++; renderCard(); } }
+function prevCard() { if(ci > 0){ ci--; renderCard(); } }
+
+function markCard(isKnown) {
+  const term = cards[ci].t;
+  if(isKnown){ known.add(term); still.delete(term); }
+  else { still.add(term); known.delete(term); }
+  if(ci < cards.length-1){ ci++; renderCard(); } else { renderCard(); }
+}
+
+function shuffleCards() {
+  for(let i=cards.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [cards[i],cards[j]]=[cards[j],cards[i]];
+  }
+  ci=0; renderCard();
+}
+
+function resetCards() {
+  cards=[...CARDS]; ci=0; known.clear(); still.clear(); renderCard();
+}
+
+// keyboard nav
+document.addEventListener('keydown', e => {
+  if(document.getElementById('flashcards').classList.contains('active')){
+    if(e.key==='ArrowRight') nextCard();
+    if(e.key==='ArrowLeft') prevCard();
+    if(e.key===' '){ e.preventDefault(); flipCard(); }
+  }
+});
+
+// ─── QUIZ STATE ─────────────────────────────────────────────────────────────
+let qs=[], qi=0, score=0, answered=false, wrongs=[];
+
+function shuffle(a){ const b=[...a]; for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];} return b; }
+
+function startQuiz(){
+  qs=shuffle(QUESTIONS); qi=0; score=0; answered=false; wrongs=[];
+  document.getElementById('quizActive').style.display='block';
+  document.getElementById('quizResults').style.display='none';
+  document.getElementById('qTot').textContent=qs.length;
+  renderQ();
+}
+
+function restartQuiz(){ startQuiz(); }
+
+function renderQ(){
+  const q=qs[qi]; answered=false;
+  document.getElementById('qNum').textContent=qi+1;
+  document.getElementById('qScore').textContent=score;
+  document.getElementById('qBar').style.width=(qi/qs.length*100)+'%';
+  document.getElementById('nextBtn').style.display='none';
+  let h='<div class="q-label">Question '+(qi+1)+' of '+qs.length+'</div>';
+  h+='<div class="q-text">'+q.q+'</div>';
+  if(q.code) h+='<div class="q-code">'+q.code+'</div>';
+  h+='<div class="opts">';
+  q.opts.forEach((o,i)=>{ h+='<button class="opt" id="o'+i+'" onclick="pick('+i+')">'+o+'</button>'; });
+  h+='</div><div class="fb" id="fb"></div>';
+  document.getElementById('qBox').innerHTML=h;
+}
+
+function pick(i){
+  if(answered) return;
+  answered=true;
+  const q=qs[qi];
+  const fb=document.getElementById('fb');
+  document.querySelectorAll('.opt').forEach(o=>o.disabled=true);
+  if(i===q.a){
+    document.getElementById('o'+i).classList.add('correct');
+    fb.textContent='✓ Correct! '+q.e;
+    fb.className='fb correct show';
+    score++;
+  } else {
+    document.getElementById('o'+i).classList.add('wrong');
+    document.getElementById('o'+q.a).classList.add('correct');
+    fb.textContent='✗ '+q.e;
+    fb.className='fb wrong show';
+    wrongs.push({q:q.q, correct:q.opts[q.a]});
+  }
+  document.getElementById('qScore').textContent=score;
+  document.getElementById('nextBtn').style.display='inline-flex';
+}
+
+function nextQ(){
+  qi++;
+  if(qi>=qs.length){ showResults(); return; }
+  renderQ();
+}
+
+function showResults(){
+  document.getElementById('qBar').style.width='100%';
+  document.getElementById('quizActive').style.display='none';
+  document.getElementById('quizResults').style.display='block';
+  const pct=Math.round(score/qs.length*100);
+  document.getElementById('finalPct').textContent=pct+'%';
+  let g,m;
+  if(pct>=90){g='A — You\'re ready! 🔥';m='Seriously locked in. Go ace that test.';}
+  else if(pct>=80){g='B — Almost there 💪';m='Solid! Review what you missed and you\'ll be golden.';}
+  else if(pct>=70){g='C — Keep grinding 📚';m='You\'ve got the basics. Hit the flashcards again for the gaps.';}
+  else {g='Need more review 😤';m='Don\'t stress — use the flashcards and retake. You got time before Friday!';}
+  document.getElementById('finalGrade').textContent=g;
+  document.getElementById('finalMsg').textContent=score+' / '+qs.length+' correct. '+m;
+  if(wrongs.length>0){
+    document.getElementById('wrongReview').style.display='block';
+    document.getElementById('wrongItems').innerHTML=wrongs.slice(0,10).map(w=>
+      '<div class="wr-item"><strong>'+w.q.replace(/<[^>]+>/g,'')+'</strong>Correct: '+w.correct+'</div>'
+    ).join('');
+  }
+}
+
+// ─── ALL CARDS ───────────────────────────────────────────────────────────────
+function buildAll(filter=''){
+  const fl=filter.toLowerCase();
+  const items=CARDS.filter(c=>!fl||c.t.toLowerCase().includes(fl)||c.d.toLowerCase().includes(fl));
+  document.getElementById('allList').innerHTML = items.length
+    ? items.map(c=>'<div class="all-item"><div class="all-term">'+c.t+'</div><div class="all-def">'+c.d+'</div></div>').join('')
+    : '<p style="color:var(--muted);text-align:center;padding:2rem;font-family:\'Space Mono\',monospace;font-size:0.8rem">No results for "'+filter+'"</p>';
+}
+function filterCards(v){ buildAll(v); }
+
+// ─── TAB SWITCHING ───────────────────────────────────────────────────────────
+function switchTab(id, el){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  el.classList.add('active');
+}
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+renderCard();
+startQuiz();
+buildAll();
+</script>
+</body>
+</html>
