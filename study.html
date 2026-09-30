@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Study Tool</title>
+<style>
+:root{--bg:#f6f7fb;--card:#fff;--tx:#282e3e;--mut:#586380;--pri:#4255ff;--ok:#18ae79;--okb:#e0f7ee;--bad:#e5484d;--badb:#ffe9e9;--bd:#d9dde8;--sel:#e9ecff}
+@media(prefers-color-scheme:dark){:root{--bg:#0a092d;--card:#2e3856;--tx:#f6f7fb;--mut:#a8b1cd;--bd:#4a5578;--sel:#3b4670;--okb:#12463a;--badb:#5a2530}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+header{display:flex;gap:6px;align-items:center;padding:10px 16px;background:var(--card);border-bottom:2px solid var(--bd);position:sticky;top:0;z-index:5;flex-wrap:wrap}
+header b{margin-right:auto;font-size:18px}
+.tab,button{font:inherit;cursor:pointer;border:2px solid var(--bd);background:var(--card);color:var(--tx);border-radius:10px;padding:8px 14px;font-weight:600}
+.tab.on{background:var(--pri);border-color:var(--pri);color:#fff}
+.tab:disabled{opacity:.4;cursor:default}
+button:hover:not(:disabled){border-color:var(--pri)}
+button.p{background:var(--pri);border-color:var(--pri);color:#fff}
+button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:3px solid var(--pri);outline-offset:2px}
+main{max-width:760px;margin:0 auto;padding:20px 16px 60px}
+h2{margin:.2em 0 .6em}
+textarea,input[type=text],select{width:100%;font:inherit;padding:10px;border:2px solid var(--bd);border-radius:10px;background:var(--card);color:var(--tx)}
+textarea{min-height:170px}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}.row>*{flex:1;min-width:140px}
+.set{display:flex;align-items:center;gap:8px;background:var(--card);border:2px solid var(--bd);border-radius:12px;padding:12px;margin:8px 0;flex-wrap:wrap}
+.set div{flex:1;min-width:160px}.set small{color:var(--mut)}
+.fc{perspective:1200px;height:340px;margin:14px 0;cursor:pointer}
+.fci{position:relative;width:100%;height:100%;transition:transform .45s;transform-style:preserve-3d}
+.fc.f .fci{transform:rotateX(180deg)}
+.face{position:absolute;inset:0;backface-visibility:hidden;background:var(--card);border:2px solid var(--bd);border-radius:16px;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;font-size:24px;overflow:auto}
+.face.b{transform:rotateX(180deg)}
+.star{position:absolute;top:10px;right:14px;font-size:24px;background:none;border:0;padding:4px}
+.nav{display:flex;justify-content:center;align-items:center;gap:12px;flex-wrap:wrap}
+.bar{display:flex;height:12px;border-radius:6px;overflow:hidden;background:var(--bd);margin:6px 0}
+.bar i{display:block}
+.legend{display:flex;gap:16px;font-size:14px;color:var(--mut);flex-wrap:wrap}
+.q{background:var(--card);border:2px solid var(--bd);border-radius:16px;padding:22px;margin:14px 0}
+.q .lbl{color:var(--mut);font-size:14px;font-weight:600}
+.q .pr{font-size:22px;margin:8px 0 18px;white-space:pre-wrap}
+.opt{display:block;width:100%;text-align:left;margin:8px 0;padding:14px;font-weight:500;border-width:2px}
+.opt.ok{background:var(--okb);border-color:var(--ok)}.opt.no{background:var(--badb);border-color:var(--bad)}
+.fb{padding:12px;border-radius:10px;margin:10px 0}.fb.ok{background:var(--okb)}.fb.no{background:var(--badb)}
+.mut{color:var(--mut)}.c{text-align:center}
+.miss{color:var(--bad)}.hit{color:var(--ok)}
+</style></head><body>
+<header><b>Study Tool</b>
+<button class="tab" id="t-sets">Sets</button><button class="tab" id="t-fc">Flashcards</button><button class="tab" id="t-learn">Learn</button></header>
+<main id="app"></main>
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const shuffle=a=>{a=[...a];for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
+let sets=[],cur=null,view='sets',fc={i:0,f:false,order:null,defFirst:false,starOnly:false,know:0,learn:0},L=null;
+let opt={with:'def',mc:true,wr:true,starOnly:false};
+try{sets=JSON.parse(localStorage.getItem('sets')||'[]')}catch(e){}
+const save=()=>{try{localStorage.setItem('sets',JSON.stringify(sets))}catch(e){}};
+
+function parse(txt,ts,rs){
+  if(ts==='auto')ts=txt.includes('\t')?'\t':' - ';
+  const rows=rs==='blank'?txt.split(/\n\s*\n/):txt.split(rs==='semi'?';':'\n');
+  return rows.map(r=>{const k=r.indexOf(ts);if(k<0)return null;
+    const t=r.slice(0,k).trim(),d=r.slice(k+ts.length).trim();return t&&d?{t,d,star:false,lv:0}:null}).filter(Boolean);
+}
+function go(v){view=v;if(v==='learn'&&cur&&!L)startLearn();render()}
+$('#t-sets').onclick=()=>go('sets');$('#t-fc').onclick=()=>{fc.i=0;fc.f=false;fc.order=null;go('fc')};$('#t-learn').onclick=()=>go('learn');
+function open(i){cur=sets[i];L=null;fc.i=0;fc.f=false;fc.order=null;go('fc')}
+function render(){
+  ['sets','fc','learn'].forEach(v=>{const b=$('#t-'+v);b.classList.toggle('on',view===v);b.disabled=v!=='sets'&&!cur});
+  $('#app').innerHTML=view==='sets'?vSets():view==='fc'?vFc():vLearn();
+  if(view==='sets')bindSets();
+}
+/* ---------- Sets ---------- */
+function vSets(){
+  return `<h2>Import a set</h2>
+  <p class="mut">Paste a Quizlet export (Quizlet: set menu, Export). Each line is one card: term, then a tab, then the definition.</p>
+  <input type="text" id="ttl" placeholder="Set title" aria-label="Set title">
+  <div class="row"><textarea id="txt" placeholder="term[TAB]definition&#10;term[TAB]definition" aria-label="Quizlet export text"></textarea></div>
+  <div class="row"><label>Between term and definition<select id="ts"><option value="auto">Auto (tab, else " - ")</option><option value="&#9;">Tab</option><option value=",">Comma</option><option value=" - ">Dash ( - )</option><option value=";">Semicolon</option></select></label>
+  <label>Between cards<select id="rs"><option value="nl">New line</option><option value="semi">Semicolon</option><option value="blank">Blank line</option></select></label></div>
+  <div class="row"><button class="p" id="mk">Create set</button><button id="file">Import from .txt file</button><input type="file" id="fi" accept=".txt,.csv,.tsv,text/plain" hidden></div>
+  <p id="msg" class="mut" role="status"></p>
+  <h2>Your sets</h2>${sets.length?sets.map((s,i)=>`<div class="set"><div><b>${esc(s.name)}</b><br><small>${s.cards.length} cards, ${s.cards.filter(c=>c.lv>1).length} mastered</small></div>
+  <button data-o="${i}" class="p">Study</button><button data-x="${i}">Export</button><button data-d="${i}">Delete</button></div>`).join(''):'<p class="mut">No sets yet. Paste an export above to start.</p>'}
+  <p class="mut">Sets are saved in this browser only.</p>`;
+}
+function bindSets(){
+  $('#mk').onclick=()=>{const cards=parse($('#txt').value,$('#ts').value,$('#rs').value);
+    if(!cards.length){$('#msg').textContent='No cards found. Check that each line has a term and a definition split by the chosen separator.';return}
+    sets.unshift({name:$('#ttl').value.trim()||'Untitled set',cards});save();cur=sets[0];L=null;$('#msg').textContent='';open(0)};
+  $('#file').onclick=()=>$('#fi').click();
+  $('#fi').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{$('#txt').value=r.result;if(!$('#ttl').value)$('#ttl').value=f.name.replace(/\.\w+$/,'')};r.readAsText(f)};
+  document.querySelectorAll('[data-o]').forEach(b=>b.onclick=()=>open(+b.dataset.o));
+  document.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>{if(confirm('Delete this set?')){const s=sets[+b.dataset.d];if(cur===s){cur=null;L=null}sets.splice(+b.dataset.d,1);save();render()}});
+  document.querySelectorAll('[data-x]').forEach(b=>b.onclick=()=>{const s=sets[+b.dataset.x];const u=URL.createObjectURL(new Blob([s.cards.map(c=>c.t+'\t'+c.d).join('\n')],{type:'text/plain'}));const a=document.createElement('a');a.href=u;a.download=s.name+'.txt';a.click()});
+}
+/* ---------- Flashcards ---------- */
+function deck(){const d=cur.cards.filter(c=>!fc.starOnly||c.star);if(!fc.order||fc.order.length!==d.length)fc.order=d.map((_,i)=>i);return fc.order.map(i=>d[i])}
+function vFc(){
+  const d=deck();if(!d.length){return `<h2>${esc(cur.name)}</h2><p>No starred cards yet.</p><button id="fs" onclick="fc.starOnly=false;fc.order=null;render()">Show all cards</button>`}
+  fc.i=Math.min(fc.i,d.length-1);const c=d[fc.i],a=fc.defFirst?c.d:c.t,b=fc.defFirst?c.t:c.d;
+  return `<h2>${esc(cur.name)}</h2>
+  <div class="fc ${fc.f?'f':''}" onclick="fc.f=!fc.f;render()" role="button" tabindex="0" aria-label="Flip card"><div class="fci">
+   <div class="face">${esc(a)}</div><div class="face b">${esc(b)}</div></div>
+   <button class="star" aria-label="Star card" onclick="event.stopPropagation();toggleStar(${cur.cards.indexOf(c)})">${c.star?'★':'☆'}</button></div>
+  <div class="nav"><button onclick="fcGo(-1)">Prev</button><b>${fc.i+1} / ${d.length}</b><button onclick="fcGo(1)">Next</button></div>
+  <div class="nav" style="margin-top:14px"><button onclick="fcRate(0)">Still learning (${fc.learn})</button><button onclick="fcRate(1)">Know (${fc.know})</button></div>
+  <div class="nav" style="margin-top:14px"><button onclick="fc.order=shuffle(fc.order);fc.i=0;fc.f=false;render()">Shuffle</button>
+  <button onclick="fc.defFirst=!fc.defFirst;fc.f=false;render()">${fc.defFirst?'Term first':'Definition first'}</button>
+  <button onclick="fc.starOnly=!fc.starOnly;fc.order=null;fc.i=0;render()">${fc.starOnly?'Show all':'Starred only'}</button>
+  <button onclick="fc.i=0;fc.know=fc.learn=0;fc.f=false;render()">Restart</button></div>
+  <p class="mut c">Keys: Space flips, arrow keys move.</p>`;
+}
+function toggleStar(i){cur.cards[i].star=!cur.cards[i].star;save();render()}
+function fcGo(n){const l=deck().length;fc.i=(fc.i+n+l)%l;fc.f=false;render()}
+function fcRate(k){k?fc.know++:fc.learn++;fcGo(1)}
+/* ---------- Learn ---------- */
+const lvCount=l=>cur.cards.filter(c=>c.lv===l).length;
+function startLearn(reset){if(reset)cur.cards.forEach(c=>c.lv=0);save();L={round:0,queue:[],q:null,summary:false,done:false,right:0,wrong:0,missed:new Set(),tm:null};nextRound()}
+function nextRound(){
+  const p=cur.cards.filter(c=>c.lv<2&&(!opt.starOnly||c.star));
+  if(!p.length){L.done=true;return render()}
+  L.round++;L.rr=0;L.rw=0;L.roundCards=shuffle(p).slice(0,7);L.queue=[...L.roundCards];L.summary=false;ask();
+}
+function ask(){
+  if(!L.queue.length){L.summary=true;return render()}
+  const c=L.queue.shift();
+  const ans=opt.with==='both'?(Math.random()<.5?'d':'t'):(opt.with==='def'?'d':'t');
+  const type=(!opt.wr||(c.lv===0&&opt.mc))?'mc':'wr';
+  L.q={c,ans,type,res:null,opts:type==='mc'?mkOpts(c,ans):null};render();
+}
+function mkOpts(c,k){
+  const seen=new Set([c[k]]),o=[];
+  for(const x of shuffle(cur.cards)){if(!seen.has(x[k])){seen.add(x[k]);o.push(x[k])}if(o.length===3)break}
+  return shuffle([c[k],...o]);
+}
+const norm=s=>s.toLowerCase().replace(/\([^)]*\)/g,' ').replace(/[^\p{L}\p{N}\s]/gu,'').replace(/\s+/g,' ').trim();
+function submit(val,dk){
+  const q=L.q;if(q.res)return;const c=q.c,k=q.ans,ok=!dk&&(q.type==='mc'?val===c[k]:norm(val)===norm(c[k]));
+  q.res={ok,given:val,dk,prev:c.lv};
+  if(ok){c.lv=Math.min(2,c.lv+1);L.right++;L.rr++}
+  else{c.lv=0;L.wrong++;L.rw++;L.missed.add(c);L.queue.splice(Math.min(2,L.queue.length),0,c)}
+  save();render();
+  if(ok)L.tm=setTimeout(()=>{if(L&&L.q===q)ask()},750);
+}
+function override(){const q=L.q,c=q.c,i=L.queue.indexOf(c);if(i>-1)L.queue.splice(i,1);c.lv=Math.min(2,q.res.prev+1);L.wrong--;L.rw--;L.right++;L.rr++;L.missed.delete(c);q.res.ok=true;save();ask()}
+function cont(){clearTimeout(L.tm);if(L.q&&L.q.res)ask()}
+function vLearn(){
+  const n=cur.cards.length,m=lvCount(2),f=lvCount(1),z=lvCount(0);
+  const bar=`<div class="bar" aria-hidden="true"><i style="width:${m/n*100}%;background:var(--ok)"></i><i style="width:${f/n*100}%;background:var(--pri)"></i></div>
+  <div class="legend"><span>Mastered ${m}</span><span>Familiar ${f}</span><span>Not started ${z}</span></div>`;
+  const opts=`<details style="margin-top:22px"><summary><b>Options</b></summary><div class="row">
+  <label>Answer with<select onchange="opt.with=this.value;L=null;startLearn();render()"><option value="def" ${opt.with==='def'?'selected':''}>Definition</option><option value="term" ${opt.with==='term'?'selected':''}>Term</option><option value="both" ${opt.with==='both'?'selected':''}>Both</option></select></label></div>
+  <div class="row"><label><input type="checkbox" ${opt.mc?'checked':''} onchange="opt.mc=this.checked;if(!opt.mc&&!opt.wr)opt.wr=true;render()"> Multiple choice</label>
+  <label><input type="checkbox" ${opt.wr?'checked':''} onchange="opt.wr=this.checked;if(!opt.mc&&!opt.wr)opt.mc=true;render()"> Written</label>
+  <label><input type="checkbox" ${opt.starOnly?'checked':''} onchange="opt.starOnly=this.checked;L=null;startLearn();render()"> Starred cards only</label></div>
+  <button onclick="if(confirm('Reset all progress for this set?')){startLearn(true);render()}">Restart Learn</button></details>`;
+  if(!L)return '';
+  if(L.done)return `<h2>${esc(cur.name)}</h2><div class="q c"><h2>You mastered every term.</h2><p>${L.right} correct, ${L.wrong} missed.</p>
+    ${L.missed.size?`<p class="mut">Hardest terms:</p><p>${[...L.missed].map(c=>esc(c.t)).join(', ')}</p>`:''}
+    <button class="p" onclick="startLearn(true);render()">Learn again</button> <button onclick="go('fc')">Flashcards</button></div>${bar}${opts}`;
+  if(L.summary)return `<h2>Round ${L.round} complete</h2><div class="q"><p><b class="hit">${L.rr} correct</b> and <b class="miss">${L.rw} missed</b> in this round.</p>
+    ${L.roundCards.map(c=>`<p style="margin:6px 0"><span class="${L.missed.has(c)?'miss':'hit'}">${L.missed.has(c)?'✗':'✓'}</span> <b>${esc(c.t)}</b>: ${esc(c.d)}</p>`).join('')}
+    <button class="p" id="nr" onclick="nextRound();render()">Continue</button></div>${bar}${opts}`;
+  const q=L.q,c=q.c,pk=q.ans==='d'?'t':'d',r=q.res;
+  let body;
+  if(q.type==='mc'){
+    body=q.opts.map((o,i)=>{let cls='';if(r){if(o===c[q.ans])cls='ok';else if(o===r.given&&!r.ok)cls='no'}
+      return `<button class="opt ${cls}" ${r?'disabled':''} onclick="submit(${JSON.stringify(o).replace(/"/g,'&quot;')})"><b>${i+1}</b>&nbsp; ${esc(o)}</button>`}).join('');
+    if(!r)body+=`<p class="c"><button onclick="submit('',true)">Don't know</button></p>`;
+  }else{
+    body=`<input type="text" id="wa" autocomplete="off" autocapitalize="none" placeholder="Type the ${q.ans==='d'?'definition':'term'}" ${r?'disabled value="'+esc(r.given)+'"':''} aria-label="Your answer">`
+      +(r?'':`<p class="row"><button class="p" onclick="submit($('#wa').value)">Answer</button><button onclick="submit('',true)">Don't know</button></p>`);
+  }
+  if(r&&!r.ok)body+=`<div class="fb no"><b>${r.dk?'Correct answer':'Not quite. Correct answer'}:</b><br>${esc(c[q.ans])}</div>
+    <div class="row">${q.type==='wr'&&!r.dk?'<button onclick="override()">I was correct</button>':''}<button class="p" onclick="cont()" id="cn">Continue</button></div>`;
+  if(r&&r.ok&&q.type==='wr')body+=`<div class="fb ok">Correct.</div>`;
+  return `<h2>${esc(cur.name)}</h2>${bar}<div class="q"><div class="lbl">${q.ans==='d'?'Term':'Definition'} · Round ${L.round} · ${L.queue.length+(r?0:1)} left</div>
+    <div class="pr">${esc(c[pk])}</div>${body}</div>${opts}`;
+}
+document.addEventListener('keydown',e=>{
+  if(!cur)return;const tag=(e.target.tagName||'');
+  if(view==='fc'&&tag!=='INPUT'&&tag!=='SELECT'){if(e.key===' '){e.preventDefault();fc.f=!fc.f;render()}else if(e.key==='ArrowRight')fcGo(1);else if(e.key==='ArrowLeft')fcGo(-1)}
+  if(view==='learn'&&L){
+    if(L.summary&&e.key==='Enter'&&tag!=='BUTTON'){nextRound();render();return}
+    const q=L.q;if(!q||L.summary||L.done)return;
+    if(e.key==='Enter'&&tag==='INPUT'&&!q.res){submit(e.target.value);return}
+    if(e.key==='Enter'&&q.res&&!q.res.ok&&tag!=='BUTTON'){cont();return}
+    if(q.type==='mc'&&!q.res&&/^[1-4]$/.test(e.key)&&q.opts[+e.key-1]!==undefined)submit(q.opts[+e.key-1]);
+  }
+});
+const _r=render;render=function(){_r();if(view==='learn'&&L&&L.q&&!L.summary&&!L.done){const w=$('#wa');if(w&&!L.q.res)w.focus()}};
+render();
+</script></body></html>
